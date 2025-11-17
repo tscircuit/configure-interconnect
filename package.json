@@ -5,7 +5,8 @@
   "scripts": {
     "start": "cosmos",
     "build": "tsup-node ./lib/index.ts --dts --format esm",
-    "build:site": "cosmos-export"
+    "build:site": "cosmos-export",
+    "repomix": "repomix --ignore '**/*.circuit.json'"
   },
   "devDependencies": {
     "@types/bun": "latest",
