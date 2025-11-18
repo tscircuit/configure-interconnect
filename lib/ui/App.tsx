@@ -4,6 +4,7 @@ import { colorByIndex } from "../colors"
 import { loadCircuit } from "../load-circuit"
 import { groupPortsIntoNets } from "../nets"
 import { getOuterPinNets, type UserNetConnection } from "../outer-pin-nets"
+import { generateTestFixture } from "../generate-test-fixture"
 import { ConnectionTable } from "./ConnectionTable"
 import { Dropdown } from "./Dropdown"
 import { InterconnectCanvas } from "./InterconnectCanvas"
@@ -24,6 +25,8 @@ export const App: React.FC = () => {
   const [selectionModeConnectionId, setSelectionModeConnectionId] = useState<
     string | null
   >(null)
+  const [testFixtureSvg, setTestFixtureSvg] = useState<string | null>(null)
+  const [testFixtureCircuitJson, setTestFixtureCircuitJson] = useState<any>(null)
 
   // Load circuit data
   const circuitData = useMemo(() => loadCircuit(), [])
@@ -182,6 +185,50 @@ export const App: React.FC = () => {
     }
   }
 
+  const handleGenerateTestFixture = async () => {
+    // Generate test fixture circuit JSON
+    const testFixtureCircuit = generateTestFixture({
+      userConnections,
+      outerPinNets,
+      circuitData,
+    })
+
+    // Store the circuit JSON
+    setTestFixtureCircuitJson(testFixtureCircuit)
+
+    // Dynamically import circuit-to-svg
+    const { convertCircuitJsonToPcbSvg } = await import("circuit-to-svg")
+
+    // Convert to SVG
+    const svg = convertCircuitJsonToPcbSvg(testFixtureCircuit as any, {
+      width: 800,
+      height: 800,
+      matchBoardAspectRatio: true,
+    })
+
+    setTestFixtureSvg(svg)
+  }
+
+  const handleDownloadCircuitJson = () => {
+    if (!testFixtureCircuitJson) return
+
+    // Create a blob from the JSON
+    const jsonString = JSON.stringify(testFixtureCircuitJson, null, 2)
+    const blob = new Blob([jsonString], { type: "application/json" })
+    const url = URL.createObjectURL(blob)
+
+    // Create a temporary link and trigger download
+    const link = document.createElement("a")
+    link.href = url
+    link.download = "test-fixture.circuit.json"
+    document.body.appendChild(link)
+    link.click()
+
+    // Cleanup
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }
+
   return (
     <div className="min-h-screen bg-gray-100 p-6">
       <div className="max-w-7xl mx-auto">
@@ -237,6 +284,35 @@ export const App: React.FC = () => {
             </div>
           </div>
         </div>
+
+        <div className="mt-6 p-4 bg-white rounded-lg border border-gray-300">
+          <button
+            type="button"
+            onClick={handleGenerateTestFixture}
+            className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold"
+          >
+            Generate Test Fixture
+          </button>
+        </div>
+
+        {testFixtureSvg && (
+          <div className="mt-6 p-4 bg-white rounded-lg border border-gray-300">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-semibold text-lg">Test Fixture</h3>
+              <button
+                type="button"
+                onClick={handleDownloadCircuitJson}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-semibold text-sm"
+              >
+                Download Circuit JSON
+              </button>
+            </div>
+            <div
+              className="border border-gray-200 rounded overflow-auto"
+              dangerouslySetInnerHTML={{ __html: testFixtureSvg }}
+            />
+          </div>
+        )}
       </div>
     </div>
   )
