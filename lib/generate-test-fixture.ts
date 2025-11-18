@@ -218,13 +218,13 @@ export function generateTestFixture(options: TestFixtureOptions): CircuitJson {
     height: fixtureSize,
   })
 
-  // Create PCB board
+  // Create PCB board (65mm x 65mm)
   circuitJson.push({
     type: "pcb_board",
     pcb_board_id: "test_fixture_board",
     center: { x: 0, y: 0 },
-    width: fixtureSize + 2,
-    height: fixtureSize + 2,
+    width: 65,
+    height: 65,
   })
 
   // Create pads for ALL pads in the original circuit (outer pins, inner pins, everything)
