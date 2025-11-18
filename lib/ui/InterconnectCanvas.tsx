@@ -188,7 +188,7 @@ export const InterconnectCanvas: React.FC<InterconnectCanvasProps> = ({
             }
 
             // Fade traces if in selection mode and this is not the selected connection
-            const traceOpacity = selectionModeConnectionId && conn.id !== selectionModeConnectionId ? 0.3 : 0.8
+            const traceOpacity = selectionModeConnectionId && conn.id !== selectionModeConnectionId ? 0.05 : 0.8
 
             return (
               <g key={conn.id}>
@@ -246,7 +246,7 @@ export const InterconnectCanvas: React.FC<InterconnectCanvasProps> = ({
               bgColor = conn.color
               opacity = 1
             } else {
-              bgColor = "#dc2626"
+              bgColor = "#9ca3af"
               opacity = 0.25
             }
           } else if (kind === "C") {
@@ -272,12 +272,8 @@ export const InterconnectCanvas: React.FC<InterconnectCanvasProps> = ({
           if (selectionModeConnectionId) {
             const isPartOfSelectedConnection = connId === selectionModeConnectionId
             if (!isPartOfSelectedConnection) {
-              // For inner pins not in selected net, use very low opacity
-              if (kind !== "C" && kind !== "X") {
-                opacity = 0.1
-              } else {
-                opacity = 0.3
-              }
+              // Fade everything not in the selected connection much more
+              opacity = 0.05
             }
           }
 

@@ -208,15 +208,11 @@ export const App: React.FC = () => {
           <div className="grid grid-cols-2 gap-2 text-xs">
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 bg-gray-400 rounded opacity-30" />
-              <span>Unused C/Inner pins</span>
+              <span>Unused pins</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 bg-blue-600 rounded" />
               <span>Used pins (connection color)</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-red-600 rounded opacity-30" />
-              <span>Unused X pins (non-configurable)</span>
             </div>
           </div>
         </div>
