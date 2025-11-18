@@ -131,9 +131,10 @@ export const InterconnectCanvas: React.FC<InterconnectCanvasProps> = ({
   const canvasHeight = bounds.height * scale
 
   // Convert mm coordinates to pixels
+  // Circuit JSON uses up=y+, but web uses up=y-, so we flip the Y axis
   const mmToPixels = (x: number, y: number) => ({
     x: (x - bounds.minX) * scale,
-    y: (y - bounds.minY) * scale,
+    y: (bounds.maxY - y) * scale,
   })
 
   // Find the one-hop connection between two outer pin nets
