@@ -54,6 +54,7 @@ export const getOuterPinNets = (
  */
 export type UserNetConnection = {
   id: string
+  name: string // "NET1", "NET2", etc.
   outerPinNames: string[] // ["C1", "C3", "C5"]
   color: string
 }

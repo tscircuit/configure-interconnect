@@ -1,4 +1,5 @@
 import type React from "react"
+import { useState } from "react"
 import type { OuterPinNet, UserNetConnection } from "../outer-pin-nets"
 
 interface ConnectionTableProps {
@@ -9,6 +10,7 @@ interface ConnectionTableProps {
   onCreateConnection: () => void
   onRemoveConnection: (connectionId: string) => void
   onRemovePinFromConnection: (connectionId: string, pinName: string) => void
+  onRenameConnection: (connectionId: string, newName: string) => void
   onEnterSelectionMode: (connectionId: string) => void
   onExitSelectionMode: () => void
 }
@@ -20,9 +22,14 @@ export const ConnectionTable: React.FC<ConnectionTableProps> = ({
   onCreateConnection,
   onRemoveConnection,
   onRemovePinFromConnection,
+  onRenameConnection,
   onEnterSelectionMode,
   onExitSelectionMode,
 }) => {
+  const [editingConnectionId, setEditingConnectionId] = useState<string | null>(
+    null,
+  )
+  const [editingName, setEditingName] = useState("")
   return (
     <div className="border border-gray-300 rounded-lg p-4 bg-white">
       <div className="flex justify-between items-center mb-4">
@@ -58,6 +65,7 @@ export const ConnectionTable: React.FC<ConnectionTableProps> = ({
         ) : (
           userConnections.map((conn) => {
             const isInSelectionMode = selectionModeConnectionId === conn.id
+            const isEditing = editingConnectionId === conn.id
 
             return (
               <div
@@ -74,16 +82,58 @@ export const ConnectionTable: React.FC<ConnectionTableProps> = ({
                       className="w-4 h-4 rounded"
                       style={{ backgroundColor: conn.color }}
                     />
-                    <span className="font-medium text-sm">
-                      Connection {conn.id.slice(-8)}
-                    </span>
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        value={editingName}
+                        onChange={(e) => setEditingName(e.target.value)}
+                        onBlur={() => {
+                          if (editingName.trim()) {
+                            onRenameConnection(conn.id, editingName.trim())
+                          }
+                          setEditingConnectionId(null)
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            if (editingName.trim()) {
+                              onRenameConnection(conn.id, editingName.trim())
+                            }
+                            setEditingConnectionId(null)
+                          } else if (e.key === "Escape") {
+                            setEditingConnectionId(null)
+                          }
+                        }}
+                        className="font-medium text-sm px-1 py-0.5 border border-blue-500 rounded"
+                        autoFocus
+                      />
+                    ) : (
+                      <span
+                        className="font-medium text-sm cursor-pointer hover:bg-gray-100 px-1 py-0.5 rounded"
+                        onClick={() => {
+                          setEditingConnectionId(conn.id)
+                          setEditingName(conn.name)
+                        }}
+                      >
+                        {conn.name}
+                      </span>
+                    )}
                   </div>
-                  <button
-                    onClick={() => onRemoveConnection(conn.id)}
-                    className="text-red-600 hover:text-red-800 text-xs"
-                  >
-                    Remove
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {!isInSelectionMode && (
+                      <button
+                        onClick={() => onEnterSelectionMode(conn.id)}
+                        className="text-xs hover:underline text-blue-600"
+                      >
+                        Add Nets
+                      </button>
+                    )}
+                    <button
+                      onClick={() => onRemoveConnection(conn.id)}
+                      className="text-red-600 hover:text-red-800 text-xs"
+                    >
+                      Remove
+                    </button>
+                  </div>
                 </div>
 
                 <div className="mb-2">
@@ -126,15 +176,6 @@ export const ConnectionTable: React.FC<ConnectionTableProps> = ({
                     </div>
                   )}
                 </div>
-
-                {!isInSelectionMode && (
-                  <button
-                    onClick={() => onEnterSelectionMode(conn.id)}
-                    className="mt-2 px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-xs w-full"
-                  >
-                    Add Nets
-                  </button>
-                )}
               </div>
             )
           })

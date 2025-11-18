@@ -1,6 +1,6 @@
 import type React from "react"
 import { useMemo, useState } from "react"
-import { colorForNet } from "../colors"
+import { colorByIndex } from "../colors"
 import { loadCircuit } from "../load-circuit"
 import { groupPortsIntoNets } from "../nets"
 import { getOuterPinNets, type UserNetConnection } from "../outer-pin-nets"
@@ -54,10 +54,12 @@ export const App: React.FC = () => {
   }, [userConnections, outerPinNets])
 
   const handleCreateConnection = () => {
+    const nextNumber = userConnections.length + 1
     const newConn: UserNetConnection = {
       id: `conn_${Date.now()}`,
+      name: `NET${nextNumber}`,
       outerPinNames: [],
-      color: colorForNet(`conn_${Date.now()}`),
+      color: colorByIndex(userConnections.length),
     }
     setUserConnections([...userConnections, newConn])
     // Automatically enter selection mode for the new connection
@@ -137,6 +139,14 @@ export const App: React.FC = () => {
     )
   }
 
+  const handleRenameConnection = (connectionId: string, newName: string) => {
+    setUserConnections(
+      userConnections.map((c) =>
+        c.id === connectionId ? { ...c, name: newName } : c,
+      ),
+    )
+  }
+
   const handleEnterSelectionMode = (connectionId: string) => {
     setSelectionModeConnectionId(connectionId)
   }
@@ -186,6 +196,7 @@ export const App: React.FC = () => {
               onCreateConnection={handleCreateConnection}
               onRemoveConnection={handleRemoveConnection}
               onRemovePinFromConnection={handleRemovePinFromConnection}
+              onRenameConnection={handleRenameConnection}
               onEnterSelectionMode={handleEnterSelectionMode}
               onExitSelectionMode={handleExitSelectionMode}
             />
@@ -196,20 +207,16 @@ export const App: React.FC = () => {
           <h3 className="font-semibold text-sm mb-2">Legend:</h3>
           <div className="grid grid-cols-2 gap-2 text-xs">
             <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-red-600 rounded" />
-              <span>X pins (non-configurable, always cross diagonally)</span>
-            </div>
-            <div className="flex items-center gap-2">
               <div className="w-4 h-4 bg-gray-400 rounded opacity-30" />
               <span>Unused C/Inner pins</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 bg-blue-600 rounded" />
-              <span>Used C/Inner pins (net color)</span>
+              <span>Used pins (connection color)</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 bg-red-600 rounded opacity-30" />
-              <span>Unused X pins (faded)</span>
+              <span>Unused X pins (non-configurable)</span>
             </div>
           </div>
         </div>

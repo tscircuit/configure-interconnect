@@ -187,6 +187,9 @@ export const InterconnectCanvas: React.FC<InterconnectCanvasProps> = ({
               }
             }
 
+            // Fade traces if in selection mode and this is not the selected connection
+            const traceOpacity = selectionModeConnectionId && conn.id !== selectionModeConnectionId ? 0.3 : 0.8
+
             return (
               <g key={conn.id}>
                 {traces.map((trace, idx) => {
@@ -203,7 +206,7 @@ export const InterconnectCanvas: React.FC<InterconnectCanvasProps> = ({
                       y2={pos2.y}
                       stroke={conn.color}
                       strokeWidth={3}
-                      opacity={0.8}
+                      opacity={traceOpacity}
                       markerEnd="url(#arrowhead)"
                     />
                   )
@@ -252,18 +255,15 @@ export const InterconnectCanvas: React.FC<InterconnectCanvasProps> = ({
           let opacity = 1
 
           if (kind === "X") {
-            bgColor = "#dc2626"
-            if (isSelectable) {
-              bgColor = "#3b82f6"
-              opacity = 0.7
+            if (isUsed && conn) {
+              bgColor = conn.color
+              opacity = 1
             } else {
-              opacity = isUsed ? 1 : 0.25
+              bgColor = "#dc2626"
+              opacity = 0.25
             }
           } else if (kind === "C") {
-            if (isSelectable) {
-              bgColor = "#3b82f6"
-              opacity = 0.7
-            } else if (isUsed && conn) {
+            if (isUsed && conn) {
               bgColor = conn.color
               opacity = 1
             } else {
@@ -278,6 +278,19 @@ export const InterconnectCanvas: React.FC<InterconnectCanvasProps> = ({
             } else {
               bgColor = "#9ca3af"
               opacity = 0.15
+            }
+          }
+
+          // In selection mode, fade pins that are not part of the selected connection
+          if (selectionModeConnectionId) {
+            const isPartOfSelectedConnection = connId === selectionModeConnectionId
+            if (!isPartOfSelectedConnection) {
+              // For inner pins not in selected net, use very low opacity
+              if (kind !== "C" && kind !== "X") {
+                opacity = 0.1
+              } else {
+                opacity = 0.3
+              }
             }
           }
 
