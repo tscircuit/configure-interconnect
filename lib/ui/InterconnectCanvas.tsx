@@ -62,11 +62,17 @@ export const InterconnectCanvas: React.FC<InterconnectCanvasProps> = ({
   // Get net name for display (e.g., "X1_X9" for X pins, "C1" for C pins)
   const getNetDisplayName = (outerPin: OuterPinNet): string => {
     if (outerPin.kind === "X") {
-      const pinNum = Number.parseInt(outerPin.name.slice(1), 10)
-      const partnerNum = pinNum <= 9 ? pinNum + 8 : pinNum - 8
-      // Always display with the lower pin number first for consistency
-      const [first, second] = pinNum < partnerNum ? [pinNum, partnerNum] : [partnerNum, pinNum]
-      return `X${first}_X${second}`
+      // Find all X pins with the same connectivity key (partners)
+      const partners = Array.from(outerPinNets.values())
+        .filter(p => p.kind === "X" && p.connectivityKey === outerPin.connectivityKey)
+        .map(p => Number.parseInt(p.name.slice(1), 10))
+        .sort((a, b) => a - b)
+
+      if (partners.length === 2) {
+        return `X${partners[0]}_X${partners[1]}`
+      }
+      // Single X pin (no partner)
+      return outerPin.name
     }
     return outerPin.name
   }
@@ -164,49 +170,107 @@ export const InterconnectCanvas: React.FC<InterconnectCanvasProps> = ({
           height={canvasHeight}
         >
           {userConnections.map((conn) => {
-            const cPins = conn.outerPinNames.filter((name) => {
-              const outerPin = outerPinNets.get(name)
-              return outerPin?.kind === "C"
-            })
-
-            if (cPins.length < 2) return null
-
-            // Get the outer pin nets
-            const cNets = cPins
-              .map((pinName) => outerPinNets.get(pinName))
-              .filter((net): net is OuterPinNet => net !== undefined)
-
-            if (cNets.length < 2) return null
-
-            // Find one-hop connections between consecutive C nets
-            const traces: Array<[PcbSmtPad, PcbSmtPad]> = []
-            for (let i = 0; i < cNets.length - 1; i++) {
-              const connection = findOneHopConnection(cNets[i]!, cNets[i + 1]!)
-              if (connection) {
-                traces.push(connection)
-              }
-            }
-
             // Fade traces if in selection mode and this is not the selected connection
             const traceOpacity = selectionModeConnectionId && conn.id !== selectionModeConnectionId ? 0.05 : 0.8
 
             return (
               <g key={conn.id}>
-                {traces.map((trace, idx) => {
-                  const [pad1, pad2] = trace
-                  const pos1 = mmToPixels(pad1.x, pad1.y)
-                  const pos2 = mmToPixels(pad2.x, pad2.y)
+                {/* Draw internal connection traces (only between C pins) */}
+                {(() => {
+                  const cPins = conn.outerPinNames.filter((name) => {
+                    const outerPin = outerPinNets.get(name)
+                    return outerPin?.kind === "C"
+                  })
+
+                  if (cPins.length < 2) return null
+
+                  // Get the outer pin nets
+                  const cNets = cPins
+                    .map((pinName) => outerPinNets.get(pinName))
+                    .filter((net): net is OuterPinNet => net !== undefined)
+
+                  if (cNets.length < 2) return null
+
+                  // Find one-hop connections between consecutive C nets
+                  const traces: Array<[PcbSmtPad, PcbSmtPad]> = []
+                  for (let i = 0; i < cNets.length - 1; i++) {
+                    const connection = findOneHopConnection(cNets[i]!, cNets[i + 1]!)
+                    if (connection) {
+                      traces.push(connection)
+                    }
+                  }
+
+                  return traces.map((trace, idx) => {
+                    const [pad1, pad2] = trace
+                    const pos1 = mmToPixels(pad1.x, pad1.y)
+                    const pos2 = mmToPixels(pad2.x, pad2.y)
+
+                    return (
+                      <line
+                        key={`trace-${conn.id}-${idx}`}
+                        x1={pos1.x}
+                        y1={pos1.y}
+                        x2={pos2.x}
+                        y2={pos2.y}
+                        stroke={conn.color}
+                        strokeWidth={0.15 * scale}
+                        opacity={traceOpacity}
+                      />
+                    )
+                  })
+                })()}
+
+                {/* Draw entry traces from outside into outer pins (both C and X) */}
+                {conn.outerPinNames.map((pinName) => {
+                  const outerPin = outerPinNets.get(pinName)
+                  if (!outerPin) {
+                    console.warn(`Entry trace: outerPin not found for ${pinName}`)
+                    return null
+                  }
+
+                  // Find the pad for this outer pin
+                  const outerPad = pads.find((pad) =>
+                    outerPin.outerPort.port_hints.some((hint) =>
+                      pad.port_hints.includes(hint),
+                    ),
+                  )
+                  if (!outerPad) {
+                    console.warn(`Entry trace: outerPad not found for ${pinName}`)
+                    return null
+                  }
+
+                  // Determine which edge the pin is on by comparing absolute coordinates
+                  const absX = Math.abs(outerPad.x)
+                  const absY = Math.abs(outerPad.y)
+
+                  // Entry trace extends 1.5mm outward from the pin
+                  const entryLength = 1.5
+                  let outerX = outerPad.x
+                  let outerY = outerPad.y
+
+                  // Determine exit direction based on which edge is closest
+                  if (absX > absY) {
+                    // Pin is on left or right edge - exit horizontally
+                    outerX = outerPad.x + (outerPad.x > 0 ? entryLength : -entryLength)
+                  } else {
+                    // Pin is on top or bottom edge - exit vertically
+                    outerY = outerPad.y + (outerPad.y > 0 ? entryLength : -entryLength)
+                  }
+
+                  const pinPos = mmToPixels(outerPad.x, outerPad.y)
+                  const outerPos = mmToPixels(outerX, outerY)
 
                   return (
                     <line
-                      key={`${conn.id}-${idx}`}
-                      x1={pos1.x}
-                      y1={pos1.y}
-                      x2={pos2.x}
-                      y2={pos2.y}
+                      key={`entry-${conn.id}-${pinName}`}
+                      x1={outerPos.x}
+                      y1={outerPos.y}
+                      x2={pinPos.x}
+                      y2={pinPos.y}
                       stroke={conn.color}
-                      strokeWidth={0.15 * scale}
+                      strokeWidth={0.5 * scale}
                       opacity={traceOpacity}
+                      strokeLinecap="round"
                     />
                   )
                 })}

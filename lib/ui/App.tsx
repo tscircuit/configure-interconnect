@@ -89,11 +89,26 @@ export const App: React.FC = () => {
         alert("X pins cannot be connected with other pins")
         return
       }
-      // Add this X pin - the diagonal partner is automatically part of the trace
+
+      // Find the partner X pin by looking for other X pins with the same connectivity key
+      const pinsToAdd = [pinName]
+
+      for (const [otherPinName, otherPin] of outerPinNets.entries()) {
+        if (otherPin.kind === "X" &&
+            otherPin.connectivityKey === outerPin.connectivityKey &&
+            otherPinName !== pinName) {
+          pinsToAdd.push(otherPinName)
+          console.log(`Found partner X pin: ${otherPinName} for ${pinName}`)
+        }
+      }
+
+      console.log(`Adding X pin(s):`, pinsToAdd)
+
+      // Add all X pins from this net to the connection
       setUserConnections(
         userConnections.map((c) =>
           c.id === connectionId
-            ? { ...c, outerPinNames: [...c.outerPinNames, pinName] }
+            ? { ...c, outerPinNames: [...c.outerPinNames, ...pinsToAdd] }
             : c,
         ),
       )
