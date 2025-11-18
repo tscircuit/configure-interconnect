@@ -432,7 +432,10 @@ export function generateTestFixture(options: TestFixtureOptions): CircuitJson {
         )
 
         // Find adjacent pads between the two nets (within 1.5mm)
+        // Only draw one trace per net pair
+        let traceCreated = false
         for (const pad1 of pads1) {
+          if (traceCreated) break
           for (const pad2 of pads2) {
             const dx = Math.abs(pad1.x - pad2.x)
             const dy = Math.abs(pad1.y - pad2.y)
@@ -446,6 +449,7 @@ export function generateTestFixture(options: TestFixtureOptions): CircuitJson {
                   { x: pad2.x, y: pad2.y, width: 0.15, layer: "top" },
                 ],
               })
+              traceCreated = true
               break
             }
           }
