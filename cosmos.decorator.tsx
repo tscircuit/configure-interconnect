@@ -1,20 +1,21 @@
 import type React from "react"
-import { useEffect } from "react"
+import { useLayoutEffect, useState } from "react"
 
 export const TailwindDecorator = ({
   children,
 }: {
   children: React.ReactNode
 }) => {
-  useEffect(() => {
+  const [isLoaded, setIsLoaded] = useState(false)
+
+  useLayoutEffect(() => {
     const script = document.createElement("script")
     script.src = "https://cdn.tailwindcss.com"
+    script.onload = () => setIsLoaded(true)
     document.head.appendChild(script)
-
-    return () => {
-      document.head.removeChild(script)
-    }
   }, [])
+
+  if (!isLoaded) return null
 
   return <>{children}</>
 }
