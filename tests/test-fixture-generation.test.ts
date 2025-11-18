@@ -53,17 +53,17 @@ describe("Test fixture generation", () => {
     expect(sourceNets.length).toBe(1)
     expect((sourceNets[0] as any).name).toBe("NET1")
 
-    // Check for PCB pads (should have 72 - 36 chip pads + 36 test pads)
+    // Check for PCB pads (should have 172 - 100 original pads + 36 outer pin duplicates + 36 test pads)
     const pcbPads = testFixtureCircuit.filter(
       (el: any) => el.type === "pcb_smtpad"
     )
-    expect(pcbPads.length).toBe(72)
+    expect(pcbPads.length).toBe(172)
 
-    // Check for PCB traces (should have 36 connecting chip pads to test pads)
+    // Check for PCB traces (should have 38 - 36 connecting chip pads to test pads + 2 connecting C1-C3-C5)
     const pcbTraces = testFixtureCircuit.filter(
       (el: any) => el.type === "pcb_trace"
     )
-    expect(pcbTraces.length).toBe(36)
+    expect(pcbTraces.length).toBe(38)
 
     // Check for silkscreen text (should have 36 for all outer pins)
     const silkscreenText = testFixtureCircuit.filter(
@@ -114,11 +114,11 @@ describe("Test fixture generation", () => {
     )
     expect(sourceTraces.length).toBe(2)
 
-    // Check for PCB pads (should have 72 - 36 chip pads + 36 test pads, regardless of connections)
+    // Check for PCB pads (should have 172 - 100 original pads + 36 outer pin duplicates + 36 test pads)
     const pcbPads = testFixtureCircuit.filter(
       (el: any) => el.type === "pcb_smtpad"
     )
-    expect(pcbPads.length).toBe(72)
+    expect(pcbPads.length).toBe(172)
   })
 
   test("Generate test fixture SVG snapshot for C1-C3-C5 connection", async () => {
