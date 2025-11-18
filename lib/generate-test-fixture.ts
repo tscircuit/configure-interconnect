@@ -377,15 +377,35 @@ export function generateTestFixture(options: TestFixtureOptions): CircuitJson {
     })
 
     // Create silkscreen text for net name outside the test pad
-    const textOffset = 2 // mm offset from pad
+    // Position text 0.5mm away from edge of test pad (testPadSize/2 + 0.5)
+    const textOffset = testPadSize / 2 + 0.5 // mm offset from pad edge
     let textX = testPos.x
     let textY = testPos.y
+    let anchorAlignment: "center_left" | "center_right" | "top_center" | "bottom_center" = "center"
 
-    // Position text outside the box
+    // Position text outside the box and set appropriate anchor alignment
     if (Math.abs(testPos.x) > Math.abs(testPos.y)) {
-      textX = testPos.x > 0 ? testPos.x + textOffset : testPos.x - textOffset
+      // Text is on left or right edge
+      if (testPos.x > 0) {
+        // Right edge - text goes to the right
+        textX = testPos.x + textOffset
+        anchorAlignment = "center_left"
+      } else {
+        // Left edge - text goes to the left
+        textX = testPos.x - textOffset
+        anchorAlignment = "center_right"
+      }
     } else {
-      textY = testPos.y > 0 ? testPos.y + textOffset : testPos.y - textOffset
+      // Text is on top or bottom edge
+      if (testPos.y > 0) {
+        // Top edge - text goes above
+        textY = testPos.y + textOffset
+        anchorAlignment = "bottom_center"
+      } else {
+        // Bottom edge - text goes below
+        textY = testPos.y - textOffset
+        anchorAlignment = "top_center"
+      }
     }
 
     circuitJson.push({
@@ -393,7 +413,8 @@ export function generateTestFixture(options: TestFixtureOptions): CircuitJson {
       pcb_silkscreen_text_id: `test_fixture_text_${testPadCounter}`,
       text: connection ? connection.name : pinName,
       pcb_component_id: pcbComponentId,
-      center: { x: textX, y: textY },
+      anchor_position: { x: textX, y: textY },
+      anchor_alignment: anchorAlignment,
       layer: "top",
       font_size: 0.8,
     })
