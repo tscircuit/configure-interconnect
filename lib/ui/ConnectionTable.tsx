@@ -70,7 +70,7 @@ export const ConnectionTable: React.FC<ConnectionTableProps> = ({
             return (
               <div
                 key={conn.id}
-                className={`border rounded p-3 ${
+                className={`border rounded px-3 pt-3 pb-2 ${
                   isInSelectionMode
                     ? "border-blue-500 bg-blue-50"
                     : "border-gray-200"
@@ -137,9 +137,6 @@ export const ConnectionTable: React.FC<ConnectionTableProps> = ({
                 </div>
 
                 <div className="mb-2">
-                  <div className="text-xs font-medium text-gray-700 mb-1">
-                    Connected Nets:
-                  </div>
                   {conn.outerPinNames.length === 0 ? (
                     <p className="text-xs text-gray-500">No nets connected</p>
                   ) : (
@@ -166,7 +163,7 @@ export const ConnectionTable: React.FC<ConnectionTableProps> = ({
                               onClick={() =>
                                 onRemovePinFromConnection(conn.id, pinName)
                               }
-                              className="text-red-600 hover:text-red-800"
+                              className="text-gray-600 hover:text-gray-800"
                             >
                               ×
                             </button>
