@@ -596,76 +596,61 @@ export function generateFootprint(options: TestFixtureOptions): CircuitJson {
     )
   }
 
-  // Add PCB traces to connect the C* nets together using the inner pin traces
-  // We need to include the source traces that connect the inner pins
+  // Add PCB traces to connect nets together (routing between connected pads)
+  // SAME LOGIC AS TEST FIXTURE
   for (const conn of userConnections) {
     if (conn.outerPinNames.length < 2) continue
 
-    // Get all connectivity keys for this connection's outer pins
-    const connectivityKeys = new Set<string>()
-    for (const pinName of conn.outerPinNames) {
-      const outerPin = outerPinNets.get(pinName)
-      if (outerPin) {
-        connectivityKeys.add(outerPin.connectivityKey)
+    // Get all outer pins in this connection
+    const connectedOuterPins = conn.outerPinNames
+      .map(pinName => outerPinNets.get(pinName))
+      .filter((pin): pin is OuterPinNet => pin !== undefined)
+
+    // For C pins, create traces between adjacent nets
+    const cPins = connectedOuterPins.filter(pin => pin.kind === "C")
+
+    if (cPins.length >= 2) {
+      // Find one-hop connections between consecutive C nets
+      for (let i = 0; i < cPins.length - 1; i++) {
+        const net1 = cPins[i]!
+        const net2 = cPins[i + 1]!
+
+        // Get all pads for each net
+        const pads1 = circuitData.pads.filter((pad) =>
+          net1.ports.some((port) =>
+            port.port_hints.some((hint) => pad.port_hints.includes(hint)),
+          ),
+        )
+        const pads2 = circuitData.pads.filter((pad) =>
+          net2.ports.some((port) =>
+            port.port_hints.some((hint) => pad.port_hints.includes(hint)),
+          ),
+        )
+
+        // Find adjacent pads between the two nets (within 1.5mm)
+        // Only draw one trace per net pair
+        let traceCreated = false
+        for (const pad1 of pads1) {
+          if (traceCreated) break
+          for (const pad2 of pads2) {
+            const dx = Math.abs(pad1.x - pad2.x)
+            const dy = Math.abs(pad1.y - pad2.y)
+            if (dx <= 1.5 && dy <= 1.5 && (dx > 0.01 || dy > 0.01)) {
+              // Found a connection, create PCB trace
+              circuitJson.push({
+                type: "pcb_trace",
+                pcb_trace_id: `footprint_trace_${conn.id}_${i}`,
+                route: [
+                  { x: pad1.x, y: pad1.y, width: 0.15, layer: "top" },
+                  { x: pad2.x, y: pad2.y, width: 0.15, layer: "top" },
+                ],
+              })
+              traceCreated = true
+              break
+            }
+          }
+        }
       }
-    }
-
-    // Find all source traces that connect ports within our connectivity keys
-    const relevantTraces = circuitData.traces.filter((trace) => {
-      // Check if both connected ports belong to our connectivity keys
-      const fromPort = circuitData.ports.find(
-        (p) => p.source_port_id === trace.connected_source_port_ids[0],
-      )
-      const toPort = circuitData.ports.find(
-        (p) => p.source_port_id === trace.connected_source_port_ids[1],
-      )
-
-      if (!fromPort || !toPort) return false
-
-      // Check if both ports have connectivity keys that match our connection
-      const fromKey = fromPort.subcircuit_connectivity_map_key
-      const toKey = toPort.subcircuit_connectivity_map_key
-
-      return (
-        fromKey &&
-        toKey &&
-        connectivityKeys.has(fromKey) &&
-        connectivityKeys.has(toKey)
-      )
-    })
-
-    // Create PCB traces for each relevant source trace
-    for (let i = 0; i < relevantTraces.length; i++) {
-      const trace = relevantTraces[i]
-      if (!trace) continue
-
-      // Find the pads for the connected ports
-      const fromPort = circuitData.ports.find(
-        (p) => p.source_port_id === trace.connected_source_port_ids[0],
-      )
-      const toPort = circuitData.ports.find(
-        (p) => p.source_port_id === trace.connected_source_port_ids[1],
-      )
-
-      if (!fromPort || !toPort) continue
-
-      const fromPad = circuitData.pads.find((p) =>
-        p.port_hints?.some((hint) => fromPort.port_hints?.includes(hint)),
-      )
-      const toPad = circuitData.pads.find((p) =>
-        p.port_hints?.some((hint) => toPort.port_hints?.includes(hint)),
-      )
-
-      if (!fromPad || !toPad) continue
-
-      circuitJson.push({
-        type: "pcb_trace",
-        pcb_trace_id: `footprint_trace_${conn.id}_${i}`,
-        route: [
-          { x: fromPad.x, y: fromPad.y, width: 0.15, layer: "top" },
-          { x: toPad.x, y: toPad.y, width: 0.15, layer: "top" },
-        ],
-      })
     }
   }
 
