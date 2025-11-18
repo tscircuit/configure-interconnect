@@ -64,7 +64,9 @@ export const InterconnectCanvas: React.FC<InterconnectCanvasProps> = ({
     if (outerPin.kind === "X") {
       const pinNum = Number.parseInt(outerPin.name.slice(1), 10)
       const partnerNum = pinNum <= 9 ? pinNum + 8 : pinNum - 8
-      return `X${pinNum}_X${partnerNum}`
+      // Always display with the lower pin number first for consistency
+      const [first, second] = pinNum < partnerNum ? [pinNum, partnerNum] : [partnerNum, pinNum]
+      return `X${first}_X${second}`
     }
     return outerPin.name
   }

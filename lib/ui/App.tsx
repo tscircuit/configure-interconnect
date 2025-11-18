@@ -60,6 +60,8 @@ export const App: React.FC = () => {
       color: colorForNet(`conn_${Date.now()}`),
     }
     setUserConnections([...userConnections, newConn])
+    // Automatically enter selection mode for the new connection
+    setSelectionModeConnectionId(newConn.id)
   }
 
   const handleRemoveConnection = (connectionId: string) => {
