@@ -1,5 +1,5 @@
 import type React from "react"
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { pinKind } from "../nets"
 import type { OuterPinNet, UserNetConnection } from "../outer-pin-nets"
 import type { PcbSmtPad, SourcePort } from "../types"
@@ -27,6 +27,32 @@ export const InterconnectCanvas: React.FC<InterconnectCanvasProps> = ({
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(
     null,
   )
+  const padClickedRef = useRef(false)
+
+  // Window-level click handler to exit selection mode when clicking outside pads
+  useEffect(() => {
+    if (!selectionModeConnectionId) return
+
+    const handleWindowClick = () => {
+      // If a pad was clicked, don't exit selection mode
+      if (padClickedRef.current) {
+        padClickedRef.current = false
+        return
+      }
+      // Otherwise, exit selection mode
+      onOuterPinClick('')
+    }
+
+    // Add listener on next tick to avoid triggering on the same click that entered selection mode
+    const timeoutId = setTimeout(() => {
+      window.addEventListener('click', handleWindowClick)
+    }, 0)
+
+    return () => {
+      clearTimeout(timeoutId)
+      window.removeEventListener('click', handleWindowClick)
+    }
+  }, [selectionModeConnectionId, onOuterPinClick])
 
   // Create a map from port_hints to port for easy lookup
   const hintToPort = useMemo(() => {
@@ -311,7 +337,7 @@ export const InterconnectCanvas: React.FC<InterconnectCanvasProps> = ({
               opacity = 1
             } else {
               bgColor = "#9ca3af"
-              opacity = 0.25
+              opacity = 1 // Keep outer pins fully opaque
             }
           } else if (kind === "C") {
             if (isUsed && conn) {
@@ -319,7 +345,7 @@ export const InterconnectCanvas: React.FC<InterconnectCanvasProps> = ({
               opacity = 1
             } else {
               bgColor = "#9ca3af"
-              opacity = 0.25
+              opacity = 1 // Keep outer pins fully opaque
             }
           } else {
             // Inner pins
@@ -337,7 +363,12 @@ export const InterconnectCanvas: React.FC<InterconnectCanvasProps> = ({
             const isPartOfSelectedConnection = connId === selectionModeConnectionId
             if (!isPartOfSelectedConnection) {
               // Fade everything not in the selected connection much more
-              opacity = 0.05
+              // But keep outer pins (C and X) at a higher opacity
+              if (isOuterPin) {
+                opacity = 0.3
+              } else {
+                opacity = 0.05
+              }
             }
           }
 
@@ -346,6 +377,9 @@ export const InterconnectCanvas: React.FC<InterconnectCanvasProps> = ({
           const height = pad.height * scale
 
           const handleClick = () => {
+            // Mark that a pad was clicked to prevent window click handler from exiting selection mode
+            padClickedRef.current = true
+
             if (isSelectable) {
               const outerPin = port
                 ? portToOuterPinNet.get(port.source_port_id)

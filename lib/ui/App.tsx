@@ -171,6 +171,12 @@ export const App: React.FC = () => {
   }
 
   const handleOuterPinClick = (pinName: string) => {
+    // Empty string signals exit selection mode
+    if (pinName === '') {
+      setSelectionModeConnectionId(null)
+      return
+    }
+
     if (selectionModeConnectionId) {
       handleAddPinToConnection(selectionModeConnectionId, pinName)
     }
