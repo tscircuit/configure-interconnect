@@ -424,16 +424,47 @@ export function generateTestFixture(options: TestFixtureOptions): CircuitJson {
       }
     }
 
+    // Always show pin name as the main text
     circuitJson.push({
       type: "pcb_silkscreen_text",
       pcb_silkscreen_text_id: `test_fixture_text_${testPadCounter}`,
-      text: connection ? connection.name : pinName,
+      text: pinName,
       pcb_component_id: pcbComponentId,
       anchor_position: { x: textX, y: textY },
       anchor_alignment: anchorAlignment,
       layer: "top",
       font_size: 0.8,
     })
+
+    // If there's a net name, show it underneath the pin name
+    if (connection) {
+      let netTextX = textX
+      let netTextY = textY
+
+      // Offset the net name text based on anchor alignment
+      if (anchorAlignment === "center_left" || anchorAlignment === "center_right") {
+        // For left/right edges, offset vertically below the pin name
+        netTextY = textY - 1.0 // 1mm below pin name
+      } else {
+        // For top/bottom edges, keep same Y but offset X slightly
+        if (anchorAlignment === "bottom_center") {
+          netTextY = textY + 1.0 // 1mm above pin name
+        } else {
+          netTextY = textY - 1.0 // 1mm below pin name
+        }
+      }
+
+      circuitJson.push({
+        type: "pcb_silkscreen_text",
+        pcb_silkscreen_text_id: `test_fixture_text_net_${testPadCounter}`,
+        text: connection.name,
+        pcb_component_id: pcbComponentId,
+        anchor_position: { x: netTextX, y: netTextY },
+        anchor_alignment: anchorAlignment,
+        layer: "top",
+        font_size: 0.6, // Slightly smaller font for net name
+      })
+    }
 
     testPadCounter++
   }

@@ -65,17 +65,23 @@ describe("Test fixture generation", () => {
     )
     expect(pcbTraces.length).toBe(38)
 
-    // Check for silkscreen text (should have 36 for all outer pins)
+    // Check for silkscreen text (should have 36 for pin names + 3 for net names = 39 total)
     const silkscreenText = testFixtureCircuit.filter(
       (el: any) => el.type === "pcb_silkscreen_text"
     )
-    expect(silkscreenText.length).toBe(36)
+    expect(silkscreenText.length).toBe(39) // 36 pin names + 3 net names
 
-    // Verify connected pins have NET1 as the text
-    const connectedText = silkscreenText.filter(
+    // Verify pin names are shown
+    const pinNameText = silkscreenText.filter(
+      (text: any) => ["C1", "C3", "C5"].includes(text.text)
+    )
+    expect(pinNameText.length).toBe(3)
+
+    // Verify connected pins also have NET1 as additional text
+    const netNameText = silkscreenText.filter(
       (text: any) => text.text === "NET1"
     )
-    expect(connectedText.length).toBe(3) // C1, C3, C5
+    expect(netNameText.length).toBe(3) // C1, C3, C5 each have net name below
   })
 
   test("Generate test fixture with multiple nets", () => {
