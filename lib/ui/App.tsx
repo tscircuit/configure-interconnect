@@ -4,7 +4,7 @@ import { colorByIndex } from "../colors"
 import { loadCircuit } from "../load-circuit"
 import { groupPortsIntoNets } from "../nets"
 import { getOuterPinNets, type UserNetConnection } from "../outer-pin-nets"
-import { generateTestFixture } from "../generate-test-fixture"
+import { generateTestFixture, generateFootprint } from "../generate-test-fixture"
 import { ConnectionTable } from "./ConnectionTable"
 import { Dropdown } from "./Dropdown"
 import { InterconnectCanvas } from "./InterconnectCanvas"
@@ -25,8 +25,11 @@ export const App: React.FC = () => {
   const [selectionModeConnectionId, setSelectionModeConnectionId] = useState<
     string | null
   >(null)
-  const [testFixtureSvg, setTestFixtureSvg] = useState<string | null>(null)
-  const [testFixtureCircuitJson, setTestFixtureCircuitJson] = useState<any>(null)
+  const [generatedContent, setGeneratedContent] = useState<{
+    type: "test-fixture" | "footprint"
+    svg: string
+    circuitJson: any
+  } | null>(null)
 
   // Load circuit data
   const circuitData = useMemo(() => loadCircuit(), [])
@@ -67,6 +70,8 @@ export const App: React.FC = () => {
     setUserConnections([...userConnections, newConn])
     // Automatically enter selection mode for the new connection
     setSelectionModeConnectionId(newConn.id)
+    // Clear generated content when adding new connection
+    setGeneratedContent(null)
   }
 
   const handleRemoveConnection = (connectionId: string) => {
@@ -193,9 +198,6 @@ export const App: React.FC = () => {
       circuitData,
     })
 
-    // Store the circuit JSON
-    setTestFixtureCircuitJson(testFixtureCircuit)
-
     // Dynamically import circuit-to-svg
     const { convertCircuitJsonToPcbSvg } = await import("circuit-to-svg")
 
@@ -206,21 +208,50 @@ export const App: React.FC = () => {
       matchBoardAspectRatio: true,
     })
 
-    setTestFixtureSvg(svg)
+    setGeneratedContent({
+      type: "test-fixture",
+      svg,
+      circuitJson: testFixtureCircuit,
+    })
+  }
+
+  const handleGenerateFootprint = async () => {
+    // Generate footprint circuit JSON
+    const footprintCircuit = generateFootprint({
+      userConnections,
+      outerPinNets,
+      circuitData,
+    })
+
+    // Dynamically import circuit-to-svg
+    const { convertCircuitJsonToPcbSvg } = await import("circuit-to-svg")
+
+    // Convert to SVG
+    const svg = convertCircuitJsonToPcbSvg(footprintCircuit as any, {
+      width: 800,
+      height: 800,
+      matchBoardAspectRatio: true,
+    })
+
+    setGeneratedContent({
+      type: "footprint",
+      svg,
+      circuitJson: footprintCircuit,
+    })
   }
 
   const handleDownloadCircuitJson = () => {
-    if (!testFixtureCircuitJson) return
+    if (!generatedContent) return
 
     // Create a blob from the JSON
-    const jsonString = JSON.stringify(testFixtureCircuitJson, null, 2)
+    const jsonString = JSON.stringify(generatedContent.circuitJson, null, 2)
     const blob = new Blob([jsonString], { type: "application/json" })
     const url = URL.createObjectURL(blob)
 
     // Create a temporary link and trigger download
     const link = document.createElement("a")
     link.href = url
-    link.download = "test-fixture.circuit.json"
+    link.download = `${generatedContent.type}.circuit.json`
     document.body.appendChild(link)
     link.click()
 
@@ -286,33 +317,46 @@ export const App: React.FC = () => {
         </div>
 
         <div className="mt-6 p-4 bg-white rounded-lg border border-gray-300">
-          <button
-            type="button"
-            onClick={handleGenerateTestFixture}
-            className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold"
-          >
-            Generate Test Fixture
-          </button>
-        </div>
-
-        {testFixtureSvg && (
-          <div className="mt-6 p-4 bg-white rounded-lg border border-gray-300">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="font-semibold text-lg">Test Fixture</h3>
-              <button
-                type="button"
-                onClick={handleDownloadCircuitJson}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-semibold text-sm"
-              >
-                Download Circuit JSON
-              </button>
-            </div>
-            <div
-              className="border border-gray-200 rounded overflow-auto"
-              dangerouslySetInnerHTML={{ __html: testFixtureSvg }}
-            />
+          <div className="flex gap-4 mb-4">
+            <button
+              type="button"
+              onClick={handleGenerateTestFixture}
+              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold"
+            >
+              Generate Test Fixture
+            </button>
+            <button
+              type="button"
+              onClick={handleGenerateFootprint}
+              className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-semibold"
+            >
+              Generate Footprint
+            </button>
           </div>
-        )}
+
+          {generatedContent && (
+            <>
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-semibold text-lg">
+                  {generatedContent.type === "test-fixture"
+                    ? "Test Fixture"
+                    : "Footprint"}
+                </h3>
+                <button
+                  type="button"
+                  onClick={handleDownloadCircuitJson}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-semibold text-sm"
+                >
+                  Download Circuit JSON
+                </button>
+              </div>
+              <div
+                className="border border-gray-200 rounded overflow-auto"
+                dangerouslySetInnerHTML={{ __html: generatedContent.svg }}
+              />
+            </>
+          )}
+        </div>
       </div>
     </div>
   )
