@@ -205,27 +205,14 @@ export const InterconnectCanvas: React.FC<InterconnectCanvasProps> = ({
                       x2={pos2.x}
                       y2={pos2.y}
                       stroke={conn.color}
-                      strokeWidth={3}
+                      strokeWidth={0.15 * scale}
                       opacity={traceOpacity}
-                      markerEnd="url(#arrowhead)"
                     />
                   )
                 })}
               </g>
             )
           })}
-          <defs>
-            <marker
-              id="arrowhead"
-              markerWidth={10}
-              markerHeight={10}
-              refX={5}
-              refY={3}
-              orient="auto"
-            >
-              <polygon points="0 0, 6 3, 0 6" fill="currentColor" />
-            </marker>
-          </defs>
         </svg>
 
         {/* Draw pads as divs */}
