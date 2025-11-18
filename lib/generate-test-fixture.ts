@@ -227,6 +227,22 @@ export function generateTestFixture(options: TestFixtureOptions): CircuitJson {
     height: 65,
   })
 
+  // Add pin1 indicator (triangle) at C1 position (-4.5, 4.5)
+  // Arrow pointing right towards pin1, positioned to the left of the pad
+  circuitJson.push({
+    type: "pcb_silkscreen_path",
+    pcb_silkscreen_path_id: "test_fixture_pin1_indicator",
+    pcb_component_id: pcbComponentId,
+    layer: "top",
+    route: [
+      { x: -6.0, y: 4.5 },      // arrow point (pointing right)
+      { x: -6.8, y: 5.0 },      // top of arrow tail
+      { x: -6.8, y: 4.0 },      // bottom of arrow tail
+      { x: -6.0, y: 4.5 },      // back to point (close the triangle)
+    ],
+    stroke_width: 0.1,
+  })
+
   // Create pads for ALL pads in the original circuit (outer pins, inner pins, everything)
   let padCounter = 0
   const padToPort = new Map<string, string>()
@@ -533,6 +549,22 @@ export function generateFootprint(options: TestFixtureOptions): CircuitJson {
     rotation: 0,
     width: fixtureSize,
     height: fixtureSize,
+  })
+
+  // Add pin1 indicator (triangle) at C1 position (-4.5, 4.5)
+  // Arrow pointing right towards pin1, positioned to the left of the pad
+  circuitJson.push({
+    type: "pcb_silkscreen_path",
+    pcb_silkscreen_path_id: "footprint_pin1_indicator",
+    pcb_component_id: pcbComponentId,
+    layer: "top",
+    route: [
+      { x: -6.0, y: 4.5 },      // arrow point (pointing right)
+      { x: -6.8, y: 5.0 },      // top of arrow tail
+      { x: -6.8, y: 4.0 },      // bottom of arrow tail
+      { x: -6.0, y: 4.5 },      // back to point (close the triangle)
+    ],
+    stroke_width: 0.1,
   })
 
   // Create pads for ALL pads in the original circuit (outer pins, inner pins, everything)
