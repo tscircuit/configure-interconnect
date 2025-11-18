@@ -88,6 +88,16 @@ export const App: React.FC = () => {
         return
       }
       // Add this X pin - the diagonal partner is automatically part of the trace
+      setUserConnections(
+        userConnections.map((c) =>
+          c.id === connectionId
+            ? { ...c, outerPinNames: [...c.outerPinNames, pinName] }
+            : c,
+        ),
+      )
+      // Exit selection mode immediately since X pins can't have additional connections
+      setSelectionModeConnectionId(null)
+      return
     }
 
     // C pins: check if trying to add to a connection with X pins
