@@ -40,17 +40,17 @@ export const InterconnectCanvas: React.FC<InterconnectCanvasProps> = ({
         return
       }
       // Otherwise, exit selection mode
-      onOuterPinClick('')
+      onOuterPinClick("")
     }
 
     // Add listener on next tick to avoid triggering on the same click that entered selection mode
     const timeoutId = setTimeout(() => {
-      window.addEventListener('click', handleWindowClick)
+      window.addEventListener("click", handleWindowClick)
     }, 0)
 
     return () => {
       clearTimeout(timeoutId)
-      window.removeEventListener('click', handleWindowClick)
+      window.removeEventListener("click", handleWindowClick)
     }
   }, [selectionModeConnectionId, onOuterPinClick])
 
@@ -90,8 +90,11 @@ export const InterconnectCanvas: React.FC<InterconnectCanvasProps> = ({
     if (outerPin.kind === "X") {
       // Find all X pins with the same connectivity key (partners)
       const partners = Array.from(outerPinNets.values())
-        .filter(p => p.kind === "X" && p.connectivityKey === outerPin.connectivityKey)
-        .map(p => Number.parseInt(p.name.slice(1), 10))
+        .filter(
+          (p) =>
+            p.kind === "X" && p.connectivityKey === outerPin.connectivityKey,
+        )
+        .map((p) => Number.parseInt(p.name.slice(1), 10))
         .sort((a, b) => a - b)
 
       if (partners.length === 2) {
@@ -198,7 +201,10 @@ export const InterconnectCanvas: React.FC<InterconnectCanvasProps> = ({
         >
           {userConnections.map((conn) => {
             // Fade traces if in selection mode and this is not the selected connection
-            const traceOpacity = selectionModeConnectionId && conn.id !== selectionModeConnectionId ? 0.05 : 0.8
+            const traceOpacity =
+              selectionModeConnectionId && conn.id !== selectionModeConnectionId
+                ? 0.05
+                : 0.8
 
             return (
               <g key={conn.id}>
@@ -221,7 +227,10 @@ export const InterconnectCanvas: React.FC<InterconnectCanvasProps> = ({
                   // Find one-hop connections between consecutive C nets
                   const traces: Array<[PcbSmtPad, PcbSmtPad]> = []
                   for (let i = 0; i < cNets.length - 1; i++) {
-                    const connection = findOneHopConnection(cNets[i]!, cNets[i + 1]!)
+                    const connection = findOneHopConnection(
+                      cNets[i]!,
+                      cNets[i + 1]!,
+                    )
                     if (connection) {
                       traces.push(connection)
                     }
@@ -251,7 +260,9 @@ export const InterconnectCanvas: React.FC<InterconnectCanvasProps> = ({
                 {conn.outerPinNames.map((pinName) => {
                   const outerPin = outerPinNets.get(pinName)
                   if (!outerPin) {
-                    console.warn(`Entry trace: outerPin not found for ${pinName}`)
+                    console.warn(
+                      `Entry trace: outerPin not found for ${pinName}`,
+                    )
                     return null
                   }
 
@@ -262,7 +273,9 @@ export const InterconnectCanvas: React.FC<InterconnectCanvasProps> = ({
                     ),
                   )
                   if (!outerPad) {
-                    console.warn(`Entry trace: outerPad not found for ${pinName}`)
+                    console.warn(
+                      `Entry trace: outerPad not found for ${pinName}`,
+                    )
                     return null
                   }
 
@@ -278,10 +291,12 @@ export const InterconnectCanvas: React.FC<InterconnectCanvasProps> = ({
                   // Determine exit direction based on which edge is closest
                   if (absX > absY) {
                     // Pin is on left or right edge - exit horizontally
-                    outerX = outerPad.x + (outerPad.x > 0 ? entryLength : -entryLength)
+                    outerX =
+                      outerPad.x + (outerPad.x > 0 ? entryLength : -entryLength)
                   } else {
                     // Pin is on top or bottom edge - exit vertically
-                    outerY = outerPad.y + (outerPad.y > 0 ? entryLength : -entryLength)
+                    outerY =
+                      outerPad.y + (outerPad.y > 0 ? entryLength : -entryLength)
                   }
 
                   const pinPos = mmToPixels(outerPad.x, outerPad.y)
@@ -361,7 +376,8 @@ export const InterconnectCanvas: React.FC<InterconnectCanvasProps> = ({
 
           // In selection mode, fade pins that are not part of the selected connection
           if (selectionModeConnectionId) {
-            const isPartOfSelectedConnection = connId === selectionModeConnectionId
+            const isPartOfSelectedConnection =
+              connId === selectionModeConnectionId
             if (!isPartOfSelectedConnection) {
               // Fade everything not in the selected connection much more
               // But keep outer pins (C and X) at a higher opacity
@@ -419,7 +435,7 @@ export const InterconnectCanvas: React.FC<InterconnectCanvasProps> = ({
           // Calculate darker border color
           const darkerBorder = (() => {
             // Parse hex color and make it darker
-            const hex = bgColor.replace('#', '')
+            const hex = bgColor.replace("#", "")
             const r = Number.parseInt(hex.substring(0, 2), 16)
             const g = Number.parseInt(hex.substring(2, 4), 16)
             const b = Number.parseInt(hex.substring(4, 6), 16)
@@ -477,41 +493,50 @@ export const InterconnectCanvas: React.FC<InterconnectCanvasProps> = ({
         })}
 
         {/* Render tooltips outside of pad divs to avoid opacity inheritance */}
-        {hoveredPadId && tooltipPos && (() => {
-          const pad = pads.find(p => p.pcb_smtpad_id === hoveredPadId)
-          if (!pad) return null
+        {hoveredPadId &&
+          tooltipPos &&
+          (() => {
+            const pad = pads.find((p) => p.pcb_smtpad_id === hoveredPadId)
+            if (!pad) return null
 
-          const port = getPadPort(pad)
-          const kind = port ? pinKind(port) : "IN"
-          const connId = port ? portToConnection.get(port.source_port_id) : undefined
-          const conn = connId ? userConnections.find((c) => c.id === connId) : undefined
-          const outerPinNet = port ? portToOuterPinNet.get(port.source_port_id) : undefined
-          const netDisplayName = outerPinNet ? getNetDisplayName(outerPinNet) : ""
-          const hint = pad.port_hints[0] ?? ""
-          const pinNumber = port?.pin_number ?? "?"
-          const connName = conn ? `Connection ${conn.id.slice(-8)}` : "none"
+            const port = getPadPort(pad)
+            const kind = port ? pinKind(port) : "IN"
+            const connId = port
+              ? portToConnection.get(port.source_port_id)
+              : undefined
+            const conn = connId
+              ? userConnections.find((c) => c.id === connId)
+              : undefined
+            const outerPinNet = port
+              ? portToOuterPinNet.get(port.source_port_id)
+              : undefined
+            const netDisplayName = outerPinNet
+              ? getNetDisplayName(outerPinNet)
+              : ""
+            const hint = pad.port_hints[0] ?? ""
+            const pinNumber = port?.pin_number ?? "?"
+            const connName = conn ? `Connection ${conn.id.slice(-8)}` : "none"
 
-          const tooltipText =
-            kind === "X"
-              ? `${hint} (Pin ${pinNumber})\nNet: ${netDisplayName}\nNon-configurable X pin\nConnection: ${connName}`
-              : kind === "C"
-                ? `${hint} (Pin ${pinNumber})\nNet: ${netDisplayName}\nConnection: ${connName}`
-                : `${hint} (Pin ${pinNumber})\nInner pin\nConnection: ${connName}`
+            const tooltipText =
+              kind === "X"
+                ? `${hint} (Pin ${pinNumber})\nNet: ${netDisplayName}\nNon-configurable X pin\nConnection: ${connName}`
+                : kind === "C"
+                  ? `${hint} (Pin ${pinNumber})\nNet: ${netDisplayName}\nConnection: ${connName}`
+                  : `${hint} (Pin ${pinNumber})\nInner pin\nConnection: ${connName}`
 
-          return (
-            <div
-              className="fixed bg-gray-900 text-white text-xs px-3 py-2 rounded shadow-lg whitespace-pre-line pointer-events-none"
-              style={{
-                left: `${tooltipPos.x + 10}px`,
-                top: `${tooltipPos.y + 10}px`,
-                zIndex: 9999,
-              }}
-            >
-              {tooltipText}
-            </div>
-          )
-        })()}
-
+            return (
+              <div
+                className="fixed bg-gray-900 text-white text-xs px-3 py-2 rounded shadow-lg whitespace-pre-line pointer-events-none"
+                style={{
+                  left: `${tooltipPos.x + 10}px`,
+                  top: `${tooltipPos.y + 10}px`,
+                  zIndex: 9999,
+                }}
+              >
+                {tooltipText}
+              </div>
+            )
+          })()}
       </div>
     </div>
   )

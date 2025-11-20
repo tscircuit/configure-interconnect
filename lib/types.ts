@@ -1,3 +1,8 @@
+// NOTE: These types are simplified versions of the official circuit-json types.
+// We use these instead of importing from "circuit-json" because:
+// 1. The official types are more complex unions with strict optional fields
+// 2. Using looser types makes the code simpler and more maintainable for this project
+
 export type SourcePort = {
   type: "source_port"
   source_port_id: string

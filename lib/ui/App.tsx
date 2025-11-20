@@ -1,10 +1,13 @@
 import type React from "react"
 import { useMemo, useState } from "react"
 import { colorByIndex } from "../colors"
+import {
+  generateFootprint,
+  generateTestFixture,
+} from "../generate-test-fixture"
 import { loadCircuit } from "../load-circuit"
 import { groupPortsIntoNets } from "../nets"
 import { getOuterPinNets, type UserNetConnection } from "../outer-pin-nets"
-import { generateTestFixture, generateFootprint } from "../generate-test-fixture"
 import { ConnectionTable } from "./ConnectionTable"
 import { Dropdown } from "./Dropdown"
 import { InterconnectCanvas } from "./InterconnectCanvas"
@@ -102,9 +105,11 @@ export const App: React.FC = () => {
       const pinsToAdd = [pinName]
 
       for (const [otherPinName, otherPin] of outerPinNets.entries()) {
-        if (otherPin.kind === "X" &&
-            otherPin.connectivityKey === outerPin.connectivityKey &&
-            otherPinName !== pinName) {
+        if (
+          otherPin.kind === "X" &&
+          otherPin.connectivityKey === outerPin.connectivityKey &&
+          otherPinName !== pinName
+        ) {
           pinsToAdd.push(otherPinName)
           console.log(`Found partner X pin: ${otherPinName} for ${pinName}`)
         }
@@ -180,7 +185,7 @@ export const App: React.FC = () => {
 
   const handleOuterPinClick = (pinName: string) => {
     // Empty string signals exit selection mode
-    if (pinName === '') {
+    if (pinName === "") {
       setSelectionModeConnectionId(null)
       return
     }

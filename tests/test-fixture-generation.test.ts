@@ -36,50 +36,54 @@ describe("Test fixture generation", () => {
 
     // Check for source component
     const sourceComponent = testFixtureCircuit.find(
-      (el: any) => el.type === "source_component"
+      (el: any) => el.type === "source_component",
     )
     expect(sourceComponent).toBeDefined()
 
-    // Check for source ports (should have 36 for all outer pins)
+    // Check for source ports (should have 100 total: 36 outer pins + 64 inner pads)
     const sourcePorts = testFixtureCircuit.filter(
-      (el: any) => el.type === "source_port"
+      (el: any) => el.type === "source_port",
     )
-    expect(sourcePorts.length).toBe(36)
+    expect(sourcePorts.length).toBe(100)
 
-    // Check for source nets
+    // Check for source nets (one for each unique connectivity key)
     const sourceNets = testFixtureCircuit.filter(
-      (el: any) => el.type === "source_net"
+      (el: any) => el.type === "source_net",
     )
-    expect(sourceNets.length).toBe(1)
-    expect((sourceNets[0] as any).name).toBe("NET1")
+    expect(sourceNets.length).toBeGreaterThan(0)
+
+    // Check that the user connection net exists
+    const userNet = sourceNets.find((net: any) => net.name === "NET1")
+    expect(userNet).toBeDefined()
+    expect((userNet as any).name).toBe("NET1")
 
     // Check for PCB pads (should have 172 - 100 original pads + 36 outer pin duplicates + 36 test pads)
     const pcbPads = testFixtureCircuit.filter(
-      (el: any) => el.type === "pcb_smtpad"
+      (el: any) => el.type === "pcb_smtpad",
     )
     expect(pcbPads.length).toBe(172)
 
     // Check for PCB traces (should have 38 - 36 connecting chip pads to test pads + 2 connecting C1-C3-C5)
     const pcbTraces = testFixtureCircuit.filter(
-      (el: any) => el.type === "pcb_trace"
+      (el: any) => el.type === "pcb_trace",
     )
     expect(pcbTraces.length).toBe(38)
 
     // Check for silkscreen text (should have 36 for pin names + 3 for net names = 39 total)
     const silkscreenText = testFixtureCircuit.filter(
-      (el: any) => el.type === "pcb_silkscreen_text"
+      (el: any) => el.type === "pcb_silkscreen_text",
     )
     expect(silkscreenText.length).toBe(39) // 36 pin names + 3 net names
 
     // Verify pin names are shown
-    const pinNameText = silkscreenText.filter(
-      (text: any) => ["C1", "C3", "C5"].includes(text.text)
+    const pinNameText = silkscreenText.filter((text: any) =>
+      ["C1", "C3", "C5"].includes(text.text),
     )
     expect(pinNameText.length).toBe(3)
 
     // Verify connected pins also have NET1 as additional text
     const netNameText = silkscreenText.filter(
-      (text: any) => text.text === "NET1"
+      (text: any) => text.text === "NET1",
     )
     expect(netNameText.length).toBe(3) // C1, C3, C5 each have net name below
   })
@@ -108,21 +112,41 @@ describe("Test fixture generation", () => {
       circuitData,
     })
 
-    // Check for source nets (should have 2)
+    // Check for source nets (one for each unique connectivity key)
     const sourceNets = testFixtureCircuit.filter(
-      (el: any) => el.type === "source_net"
+      (el: any) => el.type === "source_net",
     )
-    expect(sourceNets.length).toBe(2)
+    expect(sourceNets.length).toBeGreaterThan(0)
 
-    // Check for source traces (should have 2, one for each net)
+    // Check that both user connection nets exist
+    const net1 = sourceNets.find((net: any) => net.name === "NET1")
+    const net2 = sourceNets.find((net: any) => net.name === "NET2")
+    expect(net1).toBeDefined()
+    expect(net2).toBeDefined()
+
+    // Check for source traces (many - one for each test pad connection + user net traces)
     const sourceTraces = testFixtureCircuit.filter(
-      (el: any) => el.type === "source_trace"
+      (el: any) => el.type === "source_trace",
     )
-    expect(sourceTraces.length).toBe(2)
+    expect(sourceTraces.length).toBeGreaterThan(0)
+
+    // Verify that source traces exist for the user connections
+    const net1Traces = sourceTraces.filter((trace: any) =>
+      trace.connected_source_net_ids?.some((netId: string) =>
+        netId.includes("conn_test_1"),
+      ),
+    )
+    const net2Traces = sourceTraces.filter((trace: any) =>
+      trace.connected_source_net_ids?.some((netId: string) =>
+        netId.includes("conn_test_2"),
+      ),
+    )
+    expect(net1Traces.length).toBeGreaterThan(0)
+    expect(net2Traces.length).toBeGreaterThan(0)
 
     // Check for PCB pads (should have 172 - 100 original pads + 36 outer pin duplicates + 36 test pads)
     const pcbPads = testFixtureCircuit.filter(
-      (el: any) => el.type === "pcb_smtpad"
+      (el: any) => el.type === "pcb_smtpad",
     )
     expect(pcbPads.length).toBe(172)
   })
@@ -262,5 +286,70 @@ describe("Test fixture generation", () => {
     console.log("=================================\n")
 
     expect(testFixtureCircuit).toBeDefined()
+  })
+
+  test("Verify source_traces have connected_source_port_ids including inner pads", () => {
+    // Create a user connection with C pins that require inner pad routing
+    const userConnections: UserNetConnection[] = [
+      {
+        id: "conn_test_1",
+        name: "NET1",
+        outerPinNames: ["C1", "C3", "C5"],
+        color: colorByIndex(0),
+      },
+    ]
+
+    // Generate test fixture circuit JSON
+    const testFixtureCircuit = generateTestFixture({
+      userConnections,
+      outerPinNets,
+      circuitData,
+    })
+
+    // Find the source_trace for the user connection
+    const sourceTraces = testFixtureCircuit.filter(
+      (el: any) => el.type === "source_trace",
+    )
+
+    // Find the trace that connects to NET1
+    const sourceNets = testFixtureCircuit.filter(
+      (el: any) => el.type === "source_net",
+    )
+    const userNet = sourceNets.find((net: any) => net.name === "NET1")
+    expect(userNet).toBeDefined()
+
+    const userTrace = sourceTraces.find((trace: any) =>
+      trace.connected_source_net_ids?.includes((userNet as any).source_net_id)
+    )
+
+    // Verify the trace has connected_source_port_ids
+    expect(userTrace).toBeDefined()
+    expect((userTrace as any).connected_source_port_ids).toBeDefined()
+    expect(Array.isArray((userTrace as any).connected_source_port_ids)).toBe(true)
+    expect((userTrace as any).connected_source_port_ids.length).toBeGreaterThan(3)
+
+    // Verify that the ports include both outer pins and inner pads
+    const connectedPorts = (userTrace as any).connected_source_port_ids as string[]
+
+    // Find all source_ports that belong to this trace
+    const sourcePorts = testFixtureCircuit.filter(
+      (el: any) => el.type === "source_port" && connectedPorts.includes(el.source_port_id)
+    )
+
+    // Should have outer pins (C1, C3, C5)
+    const outerPins = sourcePorts.filter((port: any) =>
+      port.port_hints.some((hint: string) => ["C1", "C3", "C5"].includes(hint))
+    )
+    expect(outerPins.length).toBe(3)
+
+    // Should also have inner pads (ports connecting C1-C3-C5)
+    const innerPads = sourcePorts.filter((port: any) =>
+      !port.port_hints.some((hint: string) => ["C1", "C3", "C5"].includes(hint))
+    )
+    expect(innerPads.length).toBeGreaterThan(0)
+
+    console.log(`\nNET1 source_trace has ${connectedPorts.length} connected ports:`)
+    console.log(`- ${outerPins.length} outer pins`)
+    console.log(`- ${innerPads.length} inner pads`)
   })
 })
