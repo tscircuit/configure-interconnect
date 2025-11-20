@@ -265,6 +265,8 @@ export function generateTestFixture(options: TestFixtureOptions): CircuitJson {
 
   // Create traces connecting ports in the same net
   const traceIdCounter = { value: 0 }
+  const connectivityKeyToSourceTraceId = new Map<string, string>()
+
   for (const conn of userConnections) {
     if (conn.outerPinNames.length === 0) continue
 
@@ -291,9 +293,12 @@ export function generateTestFixture(options: TestFixtureOptions): CircuitJson {
       throw new Error(`No net ID found for connectivity key ${connectivityKey}`)
     }
 
+    const sourceTraceId = `test_fixture_trace_${traceIdCounter.value++}`
+    connectivityKeyToSourceTraceId.set(connectivityKey, sourceTraceId)
+
     circuitJson.push({
       type: "source_trace",
-      source_trace_id: `test_fixture_trace_${traceIdCounter.value++}`,
+      source_trace_id: sourceTraceId,
       connected_source_port_ids: portIds,
       connected_source_net_ids: [netId],
       subcircuit_connectivity_map_key: connectivityKey,
@@ -655,51 +660,17 @@ export function generateTestFixture(options: TestFixtureOptions): CircuitJson {
                 )
               }
 
-              // Create source_trace for this inner bridge connection
-              const sourceTraceId = `test_fixture_inner_trace_${conn.id}_${i}`
-              const sourcePortIds = [pad1.port_hints[0], pad2.port_hints[0]]
-                .map((hint) => {
-                  // Find source port with this hint
-                  const foundPort = circuitJson.find(
-                    (obj) =>
-                      obj.type === "source_port" &&
-                      "port_hints" in obj &&
-                      obj.port_hints?.includes(hint),
-                  )
-                  if (
-                    foundPort &&
-                    foundPort.type === "source_port" &&
-                    "source_port_id" in foundPort
-                  ) {
-                    return foundPort.source_port_id as string
-                  }
-                  return undefined
-                })
-                .filter((id): id is string => id !== undefined)
-
-              if (sourcePortIds.length === 2) {
-                const netId = connectivityKeyToNetId.get(bridgeConnectivityKey)
-                if (!netId) {
-                  throw new Error(
-                    `No net ID found for bridge connectivity key ${bridgeConnectivityKey}`
-                  )
-                }
-
-                circuitJson.push({
-                  type: "source_trace",
-                  source_trace_id: sourceTraceId,
-                  connected_source_port_ids: sourcePortIds,
-                  connected_source_net_ids: [netId],
-                  subcircuit_connectivity_map_key: bridgeConnectivityKey,
-                  display_name: `Inner bridge ${pad1.port_hints[0]} to ${pad2.port_hints[0]}`,
-                })
-              }
+              // For inner bridge connections, reference the source_trace that connects the outer pins
+              // Inner pads don't have their own source_ports, but the pcb_trace should reference
+              // the source_trace of the connection they're routing
+              const sourceTraceIdForBridge = connectivityKeyToSourceTraceId.get(bridgeConnectivityKey)
 
               // Create PCB trace with bridge connectivity key
+              // Reference the source_trace for this connection if it exists
               circuitJson.push({
                 type: "pcb_trace",
                 pcb_trace_id: `test_fixture_net_trace_${conn.id}_${i}`,
-                source_trace_id: sourceTraceId,
+                ...(sourceTraceIdForBridge && { source_trace_id: sourceTraceIdForBridge }),
                 route: [
                   { x: pad1.x, y: pad1.y, width: 0.15, layer: "top" },
                   { x: pad2.x, y: pad2.y, width: 0.15, layer: "top" },
@@ -833,6 +804,44 @@ export function generateFootprint(options: TestFixtureOptions): CircuitJson {
       type: "source_net",
       source_net_id: netId,
       name: `net_${padHint}`,
+      subcircuit_connectivity_map_key: connectivityKey,
+    })
+  }
+
+  // Create source_traces for user connections (for inner bridge traces to reference)
+  const connectivityKeyToSourceTraceId = new Map<string, string>()
+  let footprintTraceCounter = 0
+
+  for (const conn of userConnections) {
+    if (conn.outerPinNames.length === 0) continue
+
+    // Get connectivity key from the first pin in the connection
+    const firstPinName = conn.outerPinNames[0]
+    if (!firstPinName) {
+      throw new Error(`Connection ${conn.id} has no outer pin names`)
+    }
+    const connectivityKey = connectivityMap.getNetConnectedToId(firstPinName)
+    if (!connectivityKey) {
+      throw new Error(
+        `No connectivity key found for pin ${firstPinName} in connection ${conn.id}`
+      )
+    }
+
+    const sourceTraceId = `footprint_trace_src_${footprintTraceCounter++}`
+    connectivityKeyToSourceTraceId.set(connectivityKey, sourceTraceId)
+
+    const netId = connectivityKeyToNetId.get(connectivityKey)
+    if (!netId) {
+      throw new Error(`No net ID found for connectivity key ${connectivityKey}`)
+    }
+
+    // Note: For footprint, we don't create source_ports, so we can't list connected_source_port_ids
+    // The source_trace just represents the logical connection
+    circuitJson.push({
+      type: "source_trace",
+      source_trace_id: sourceTraceId,
+      connected_source_port_ids: [],
+      connected_source_net_ids: [netId],
       subcircuit_connectivity_map_key: connectivityKey,
     })
   }
@@ -986,51 +995,17 @@ export function generateFootprint(options: TestFixtureOptions): CircuitJson {
                 )
               }
 
-              // Create source_trace for this inner bridge connection
-              const sourceTraceId = `footprint_inner_trace_${conn.id}_${i}`
-              const sourcePortIds = [pad1.port_hints[0], pad2.port_hints[0]]
-                .map((hint) => {
-                  // Find source port with this hint
-                  const foundPort = circuitJson.find(
-                    (obj) =>
-                      obj.type === "source_port" &&
-                      "port_hints" in obj &&
-                      obj.port_hints?.includes(hint),
-                  )
-                  if (
-                    foundPort &&
-                    foundPort.type === "source_port" &&
-                    "source_port_id" in foundPort
-                  ) {
-                    return foundPort.source_port_id as string
-                  }
-                  return undefined
-                })
-                .filter((id): id is string => id !== undefined)
-
-              if (sourcePortIds.length === 2) {
-                const netId = connectivityKeyToNetId.get(bridgeConnectivityKey)
-                if (!netId) {
-                  throw new Error(
-                    `No net ID found for bridge connectivity key ${bridgeConnectivityKey}`
-                  )
-                }
-
-                circuitJson.push({
-                  type: "source_trace",
-                  source_trace_id: sourceTraceId,
-                  connected_source_port_ids: sourcePortIds,
-                  connected_source_net_ids: [netId],
-                  subcircuit_connectivity_map_key: bridgeConnectivityKey,
-                  display_name: `Inner bridge ${pad1.port_hints[0]} to ${pad2.port_hints[0]}`,
-                })
-              }
+              // For inner bridge connections, reference the source_trace that connects the outer pins
+              // Inner pads don't have their own source_ports, but the pcb_trace should reference
+              // the source_trace of the connection they're routing
+              const sourceTraceIdForBridge = connectivityKeyToSourceTraceId.get(bridgeConnectivityKey)
 
               // Create PCB trace with bridge connectivity key
+              // Reference the source_trace for this connection if it exists
               circuitJson.push({
                 type: "pcb_trace",
                 pcb_trace_id: `footprint_trace_${conn.id}_${i}`,
-                source_trace_id: sourceTraceId,
+                ...(sourceTraceIdForBridge && { source_trace_id: sourceTraceIdForBridge }),
                 route: [
                   { x: pad1.x, y: pad1.y, width: 0.15, layer: "top" },
                   { x: pad2.x, y: pad2.y, width: 0.15, layer: "top" },
