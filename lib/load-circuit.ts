@@ -29,7 +29,7 @@ export const loadCircuit = (): Normalized => {
   // Get pads and convert their size from 0.3x0.3mm to 0.5x0.5mm
   // This is because the footprint uses larger pads than the chip
   const originalPads = byType<PcbSmtPad>("pcb_smtpad")
-  const pads = originalPads.map(pad => ({
+  const pads = originalPads.map((pad) => ({
     ...pad,
     width: pad.width === 0.3 ? 0.5 : pad.width,
     height: pad.height === 0.3 ? 0.5 : pad.height,

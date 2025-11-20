@@ -21,6 +21,7 @@
     "circuit-json": "^0.0.315",
     "circuit-json-to-connectivity-map": "^0.0.22",
     "circuit-to-svg": "^0.0.271",
+    "connectivity-map": "^1.0.0",
     "react": "^19.2.0",
     "react-cosmos": "^7.0.0",
     "react-cosmos-plugin-vite": "^7.0.0",

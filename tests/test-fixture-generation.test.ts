@@ -36,50 +36,50 @@ describe("Test fixture generation", () => {
 
     // Check for source component
     const sourceComponent = testFixtureCircuit.find(
-      (el: any) => el.type === "source_component"
+      (el: any) => el.type === "source_component",
     )
     expect(sourceComponent).toBeDefined()
 
     // Check for source ports (should have 36 for all outer pins)
     const sourcePorts = testFixtureCircuit.filter(
-      (el: any) => el.type === "source_port"
+      (el: any) => el.type === "source_port",
     )
     expect(sourcePorts.length).toBe(36)
 
     // Check for source nets
     const sourceNets = testFixtureCircuit.filter(
-      (el: any) => el.type === "source_net"
+      (el: any) => el.type === "source_net",
     )
     expect(sourceNets.length).toBe(1)
     expect((sourceNets[0] as any).name).toBe("NET1")
 
     // Check for PCB pads (should have 172 - 100 original pads + 36 outer pin duplicates + 36 test pads)
     const pcbPads = testFixtureCircuit.filter(
-      (el: any) => el.type === "pcb_smtpad"
+      (el: any) => el.type === "pcb_smtpad",
     )
     expect(pcbPads.length).toBe(172)
 
     // Check for PCB traces (should have 38 - 36 connecting chip pads to test pads + 2 connecting C1-C3-C5)
     const pcbTraces = testFixtureCircuit.filter(
-      (el: any) => el.type === "pcb_trace"
+      (el: any) => el.type === "pcb_trace",
     )
     expect(pcbTraces.length).toBe(38)
 
     // Check for silkscreen text (should have 36 for pin names + 3 for net names = 39 total)
     const silkscreenText = testFixtureCircuit.filter(
-      (el: any) => el.type === "pcb_silkscreen_text"
+      (el: any) => el.type === "pcb_silkscreen_text",
     )
     expect(silkscreenText.length).toBe(39) // 36 pin names + 3 net names
 
     // Verify pin names are shown
-    const pinNameText = silkscreenText.filter(
-      (text: any) => ["C1", "C3", "C5"].includes(text.text)
+    const pinNameText = silkscreenText.filter((text: any) =>
+      ["C1", "C3", "C5"].includes(text.text),
     )
     expect(pinNameText.length).toBe(3)
 
     // Verify connected pins also have NET1 as additional text
     const netNameText = silkscreenText.filter(
-      (text: any) => text.text === "NET1"
+      (text: any) => text.text === "NET1",
     )
     expect(netNameText.length).toBe(3) // C1, C3, C5 each have net name below
   })
@@ -110,19 +110,19 @@ describe("Test fixture generation", () => {
 
     // Check for source nets (should have 2)
     const sourceNets = testFixtureCircuit.filter(
-      (el: any) => el.type === "source_net"
+      (el: any) => el.type === "source_net",
     )
     expect(sourceNets.length).toBe(2)
 
     // Check for source traces (should have 2, one for each net)
     const sourceTraces = testFixtureCircuit.filter(
-      (el: any) => el.type === "source_trace"
+      (el: any) => el.type === "source_trace",
     )
     expect(sourceTraces.length).toBe(2)
 
     // Check for PCB pads (should have 172 - 100 original pads + 36 outer pin duplicates + 36 test pads)
     const pcbPads = testFixtureCircuit.filter(
-      (el: any) => el.type === "pcb_smtpad"
+      (el: any) => el.type === "pcb_smtpad",
     )
     expect(pcbPads.length).toBe(172)
   })

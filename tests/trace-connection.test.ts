@@ -44,8 +44,14 @@ describe("Trace connection logic", () => {
       ),
     )
 
-    console.log("Net 25 pads:", pads25.map((p) => p.port_hints.join(",")))
-    console.log("Net 26 pads:", pads26.map((p) => p.port_hints.join(",")))
+    console.log(
+      "Net 25 pads:",
+      pads25.map((p) => p.port_hints.join(",")),
+    )
+    console.log(
+      "Net 26 pads:",
+      pads26.map((p) => p.port_hints.join(",")),
+    )
 
     // Find adjacent pads between the two nets (within 1.5mm)
     const adjacentPairs: Array<{ pad1: any; pad2: any }> = []
@@ -61,7 +67,9 @@ describe("Trace connection logic", () => {
 
     console.log(
       "Adjacent pairs:",
-      adjacentPairs.map((p) => `${p.pad1.port_hints[0]} <-> ${p.pad2.port_hints[0]}`),
+      adjacentPairs.map(
+        (p) => `${p.pad1.port_hints[0]} <-> ${p.pad2.port_hints[0]}`,
+      ),
     )
 
     expect(adjacentPairs.length).toBeGreaterThan(0)
@@ -89,8 +97,14 @@ describe("Trace connection logic", () => {
       ),
     )
 
-    console.log("C3 net pads:", padsC3.map((p) => p.port_hints.join(",")))
-    console.log("C12 net pads:", padsC12.map((p) => p.port_hints.join(",")))
+    console.log(
+      "C3 net pads:",
+      padsC3.map((p) => p.port_hints.join(",")),
+    )
+    console.log(
+      "C12 net pads:",
+      padsC12.map((p) => p.port_hints.join(",")),
+    )
 
     // Find adjacent pads between the two nets
     const adjacentPairs: Array<{ pad1: any; pad2: any }> = []
@@ -106,7 +120,9 @@ describe("Trace connection logic", () => {
 
     console.log(
       "C3-C12 adjacent pairs:",
-      adjacentPairs.map((p) => `${p.pad1.port_hints[0]} <-> ${p.pad2.port_hints[0]}`),
+      adjacentPairs.map(
+        (p) => `${p.pad1.port_hints[0]} <-> ${p.pad2.port_hints[0]}`,
+      ),
     )
 
     expect(adjacentPairs.length).toBeGreaterThan(0)

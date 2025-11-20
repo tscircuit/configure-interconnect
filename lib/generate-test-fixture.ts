@@ -1,7 +1,7 @@
-import type { CircuitJson } from "./types"
-import type { UserNetConnection } from "./outer-pin-nets"
-import type { OuterPinNet } from "./outer-pin-nets"
+import { ConnectivityMap } from "connectivity-map"
 import type { Normalized } from "./load-circuit"
+import type { OuterPinNet, UserNetConnection } from "./outer-pin-nets"
+import type { CircuitJson } from "./types"
 
 export type TestFixtureOptions = {
   userConnections: UserNetConnection[]
@@ -37,13 +37,51 @@ export function generateTestFixture(options: TestFixtureOptions): CircuitJson {
     }
   }
 
+  // Build connectivity map from original circuit and user connections
+  // Start with the original circuit's connectivity
+  const originalNetMap: Record<string, string[]> = {}
+  for (const port of circuitData.ports) {
+    const netKey = port.subcircuit_connectivity_map_key
+    if (!originalNetMap[netKey]) {
+      originalNetMap[netKey] = []
+    }
+    // Use port_hints as unique identifiers for pads/pins
+    for (const hint of port.port_hints) {
+      originalNetMap[netKey].push(hint)
+    }
+  }
+
+  const connectivityMap = new ConnectivityMap(originalNetMap)
+
+  // Add user connections to merge nets
+  for (const conn of userConnections) {
+    if (conn.outerPinNames.length < 2) continue
+
+    // Get all port hints for pins in this connection
+    const allHints: string[] = []
+    for (const pinName of conn.outerPinNames) {
+      const outerPin = outerPinNets.get(pinName)
+      if (outerPin) {
+        // Add hints from the outer port and all inner ports in its net
+        for (const port of [outerPin.outerPort, ...outerPin.ports]) {
+          allHints.push(...port.port_hints)
+        }
+      }
+    }
+
+    // Connect all these hints together
+    if (allHints.length >= 2) {
+      connectivityMap.addConnections([allHints])
+    }
+  }
+
   // Get ALL outer pins (both connected and unconnected)
   const allOuterPins = Array.from(outerPinNets.entries()).map(
     ([pinName, outerPin]) => ({
       pinName,
       outerPin,
       connection: outerPinToNet.get(pinName),
-    })
+    }),
   )
 
   // Create pads for each connected outer pin at their original positions
@@ -63,8 +101,8 @@ export function generateTestFixture(options: TestFixtureOptions): CircuitJson {
     // Find the original pad position
     const originalPad = circuitData.pads.find((pad) =>
       outerPin.outerPort.port_hints.some((hint) =>
-        pad.port_hints.includes(hint)
-      )
+        pad.port_hints.includes(hint),
+      ),
     )
 
     if (!originalPad) continue
@@ -101,7 +139,7 @@ export function generateTestFixture(options: TestFixtureOptions): CircuitJson {
     pinsByEdge.top.length,
     pinsByEdge.bottom.length,
     pinsByEdge.left.length,
-    pinsByEdge.right.length
+    pinsByEdge.right.length,
   )
   const minFixtureSize = (maxPadsPerEdge - 1) * testPadPitch + 10 // Add 10mm margin
   const fixtureSize = Math.max(30, minFixtureSize) // At least 30mm
@@ -110,7 +148,7 @@ export function generateTestFixture(options: TestFixtureOptions): CircuitJson {
   const testPadPositions = new Map<string, { x: number; y: number }>()
 
   // Top edge - center the pads
-  const topStartX = -(pinsByEdge.top.length - 1) * testPadPitch / 2
+  const topStartX = (-(pinsByEdge.top.length - 1) * testPadPitch) / 2
   pinsByEdge.top.forEach((pin, idx) => {
     testPadPositions.set(pin.pinName, {
       x: topStartX + idx * testPadPitch,
@@ -119,7 +157,7 @@ export function generateTestFixture(options: TestFixtureOptions): CircuitJson {
   })
 
   // Bottom edge - center the pads
-  const bottomStartX = -(pinsByEdge.bottom.length - 1) * testPadPitch / 2
+  const bottomStartX = (-(pinsByEdge.bottom.length - 1) * testPadPitch) / 2
   pinsByEdge.bottom.forEach((pin, idx) => {
     testPadPositions.set(pin.pinName, {
       x: bottomStartX + idx * testPadPitch,
@@ -128,7 +166,7 @@ export function generateTestFixture(options: TestFixtureOptions): CircuitJson {
   })
 
   // Left edge - center the pads
-  const leftStartY = (pinsByEdge.left.length - 1) * testPadPitch / 2
+  const leftStartY = ((pinsByEdge.left.length - 1) * testPadPitch) / 2
   pinsByEdge.left.forEach((pin, idx) => {
     testPadPositions.set(pin.pinName, {
       x: -fixtureSize / 2,
@@ -137,7 +175,7 @@ export function generateTestFixture(options: TestFixtureOptions): CircuitJson {
   })
 
   // Right edge - center the pads
-  const rightStartY = (pinsByEdge.right.length - 1) * testPadPitch / 2
+  const rightStartY = ((pinsByEdge.right.length - 1) * testPadPitch) / 2
   pinsByEdge.right.forEach((pin, idx) => {
     testPadPositions.set(pin.pinName, {
       x: fixtureSize / 2,
@@ -154,6 +192,13 @@ export function generateTestFixture(options: TestFixtureOptions): CircuitJson {
     const sourcePortId = `test_fixture_port_${portCounter++}`
     pinToSourcePort.set(pinName, sourcePortId)
 
+    // Use connectivity map to determine the actual net this pin belongs to
+    const connectivityKey =
+      connectivityMap.getNetConnectedToId(pinName) ||
+      (connection
+        ? `test_fixture_net_${connection.id}`
+        : `test_fixture_unconnected_${pinName}`)
+
     circuitJson.push({
       type: "source_port",
       source_port_id: sourcePortId,
@@ -162,9 +207,7 @@ export function generateTestFixture(options: TestFixtureOptions): CircuitJson {
       subcircuit_id: subcircuitId,
       pin_number: portCounter,
       port_hints: [pinName],
-      subcircuit_connectivity_map_key: connection
-        ? `test_fixture_net_${connection.id}`
-        : `test_fixture_unconnected_${pinName}`,
+      subcircuit_connectivity_map_key: connectivityKey,
     })
   }
 
@@ -191,7 +234,7 @@ export function generateTestFixture(options: TestFixtureOptions): CircuitJson {
 
     const netId = netIdMap.get(conn.id)!
     const portIds = conn.outerPinNames
-      .map(pinName => pinToSourcePort.get(pinName))
+      .map((pinName) => pinToSourcePort.get(pinName))
       .filter((id): id is string => id !== undefined)
 
     if (portIds.length < 2) continue
@@ -235,10 +278,10 @@ export function generateTestFixture(options: TestFixtureOptions): CircuitJson {
     pcb_component_id: pcbComponentId,
     layer: "top",
     route: [
-      { x: -6.0, y: 4.5 },      // arrow point (pointing right)
-      { x: -6.8, y: 5.0 },      // top of arrow tail
-      { x: -6.8, y: 4.0 },      // bottom of arrow tail
-      { x: -6.0, y: 4.5 },      // back to point (close the triangle)
+      { x: -6.0, y: 4.5 }, // arrow point (pointing right)
+      { x: -6.8, y: 5.0 }, // top of arrow tail
+      { x: -6.8, y: 4.0 }, // bottom of arrow tail
+      { x: -6.0, y: 4.5 }, // back to point (close the triangle)
     ],
     stroke_width: 0.1,
   })
@@ -246,7 +289,6 @@ export function generateTestFixture(options: TestFixtureOptions): CircuitJson {
   // Create pads for ALL pads in the original circuit (outer pins, inner pins, everything)
   let padCounter = 0
   const padToPort = new Map<string, string>()
-  const connectionTraceIds = new Map<string, string>()
   const padIdToPcbPort = new Map<string, string>()
 
   // First, create pads for ALL original pads from the circuit data
@@ -255,8 +297,8 @@ export function generateTestFixture(options: TestFixtureOptions): CircuitJson {
     const chipPadId = `test_fixture_chip_pad_all_${padCounter}`
 
     // Find the corresponding port from the original circuit
-    const port = circuitData.ports.find(p =>
-      p.port_hints.some(hint => originalPad.port_hints.includes(hint))
+    const port = circuitData.ports.find((p) =>
+      p.port_hints.some((hint) => originalPad.port_hints.includes(hint)),
     )
 
     if (!port) {
@@ -264,20 +306,17 @@ export function generateTestFixture(options: TestFixtureOptions): CircuitJson {
       continue
     }
 
-    // Determine color based on connections
+    // Determine source port ID based on connections
     let sourcePortId: string | undefined
-    let connection: UserNetConnection | undefined
 
     // Check if this is an outer pin with a connection
     for (const [pinName, outerPin] of outerPinNets.entries()) {
-      if (outerPin.outerPort.port_hints.some(hint => originalPad.port_hints.includes(hint))) {
+      if (
+        outerPin.outerPort.port_hints.some((hint) =>
+          originalPad.port_hints.includes(hint),
+        )
+      ) {
         sourcePortId = pinToSourcePort.get(pinName)
-        connection = outerPinToNet.get(pinName)
-        break
-      }
-      // Check if this pad is part of the outer pin's net (inner pins)
-      if (outerPin.ports.some(p => p.port_hints.some(hint => originalPad.port_hints.includes(hint)))) {
-        connection = outerPinToNet.get(pinName)
         break
       }
     }
@@ -315,8 +354,8 @@ export function generateTestFixture(options: TestFixtureOptions): CircuitJson {
   for (const { pinName, outerPin, connection } of allOuterPins) {
     const originalPad = circuitData.pads.find((pad) =>
       outerPin.outerPort.port_hints.some((hint) =>
-        pad.port_hints.includes(hint)
-      )
+        pad.port_hints.includes(hint),
+      ),
     )
 
     if (!originalPad) continue
@@ -383,6 +422,16 @@ export function generateTestFixture(options: TestFixtureOptions): CircuitJson {
 
     // Create PCB trace connecting chip pad to test pad
     const traceId = `test_fixture_pcb_trace_${testPadCounter}`
+    const padHint = originalPad.port_hints[0]
+    const traceConnectivityKey = padHint
+      ? connectivityMap.getNetConnectedToId(padHint) ||
+        (connection
+          ? `test_fixture_net_${connection.id}`
+          : `test_fixture_unconnected_${pinName}`)
+      : connection
+        ? `test_fixture_net_${connection.id}`
+        : `test_fixture_unconnected_${pinName}`
+
     circuitJson.push({
       type: "pcb_trace",
       pcb_trace_id: traceId,
@@ -390,6 +439,7 @@ export function generateTestFixture(options: TestFixtureOptions): CircuitJson {
         { x: originalPad.x, y: originalPad.y, width: 0.15, layer: "top" },
         { x: testPos.x, y: testPos.y, width: 0.15, layer: "top" },
       ],
+      subcircuit_connectivity_map_key: traceConnectivityKey,
     })
 
     // Create silkscreen text for net name outside the test pad
@@ -397,7 +447,11 @@ export function generateTestFixture(options: TestFixtureOptions): CircuitJson {
     const textOffset = testPadSize / 2 + 0.5 // mm offset from pad edge
     let textX = testPos.x
     let textY = testPos.y
-    let anchorAlignment: "center_left" | "center_right" | "top_center" | "bottom_center" = "center_left"
+    let anchorAlignment:
+      | "center_left"
+      | "center_right"
+      | "top_center"
+      | "bottom_center" = "center_left"
 
     // Position text outside the box and set appropriate anchor alignment
     if (Math.abs(testPos.x) > Math.abs(testPos.y)) {
@@ -438,11 +492,14 @@ export function generateTestFixture(options: TestFixtureOptions): CircuitJson {
 
     // If there's a net name, show it underneath the pin name
     if (connection) {
-      let netTextX = textX
+      const netTextX = textX
       let netTextY = textY
 
       // Offset the net name text based on anchor alignment
-      if (anchorAlignment === "center_left" || anchorAlignment === "center_right") {
+      if (
+        anchorAlignment === "center_left" ||
+        anchorAlignment === "center_right"
+      ) {
         // For left/right edges, offset vertically below the pin name
         netTextY = textY - 1.0 // 1mm below pin name
       } else {
@@ -475,11 +532,11 @@ export function generateTestFixture(options: TestFixtureOptions): CircuitJson {
 
     // Get all outer pins in this connection
     const connectedOuterPins = conn.outerPinNames
-      .map(pinName => outerPinNets.get(pinName))
+      .map((pinName) => outerPinNets.get(pinName))
       .filter((pin): pin is OuterPinNet => pin !== undefined)
 
     // For C pins, create traces between adjacent nets
-    const cPins = connectedOuterPins.filter(pin => pin.kind === "C")
+    const cPins = connectedOuterPins.filter((pin) => pin.kind === "C")
 
     if (cPins.length >= 2) {
       // Find one-hop connections between consecutive C nets
@@ -508,7 +565,48 @@ export function generateTestFixture(options: TestFixtureOptions): CircuitJson {
             const dx = Math.abs(pad1.x - pad2.x)
             const dy = Math.abs(pad1.y - pad2.y)
             if (dx <= 1.5 && dy <= 1.5 && (dx > 0.01 || dy > 0.01)) {
-              // Found a connection, create PCB trace
+              // Found a connection, get the connectivity map key
+              // Use the first port hint from pad1 to look up the net
+              const pad1Hint = pad1.port_hints[0]
+              const connectivityKey = pad1Hint
+                ? connectivityMap.getNetConnectedToId(pad1Hint) ||
+                  `test_fixture_net_${conn.id}`
+                : `test_fixture_net_${conn.id}`
+
+              // Create source_trace for this inner connection
+              const sourceTraceId = `test_fixture_inner_trace_${conn.id}_${i}`
+              const sourcePortIds = [pad1.port_hints[0], pad2.port_hints[0]]
+                .map((hint) => {
+                  // Find source port with this hint
+                  const foundPort = circuitJson.find(
+                    (obj) =>
+                      obj.type === "source_port" &&
+                      "port_hints" in obj &&
+                      obj.port_hints?.includes(hint),
+                  )
+                  if (
+                    foundPort &&
+                    foundPort.type === "source_port" &&
+                    "source_port_id" in foundPort
+                  ) {
+                    return foundPort.source_port_id as string
+                  }
+                  return undefined
+                })
+                .filter((id): id is string => id !== undefined)
+
+              if (sourcePortIds.length === 2) {
+                circuitJson.push({
+                  type: "source_trace",
+                  source_trace_id: sourceTraceId,
+                  connected_source_port_ids: sourcePortIds,
+                  connected_source_net_ids: [`test_fixture_net_${conn.id}`],
+                  subcircuit_connectivity_map_key: connectivityKey,
+                  display_name: `Inner trace ${pad1.port_hints[0]} to ${pad2.port_hints[0]}`,
+                })
+              }
+
+              // Create PCB trace with connectivity key
               circuitJson.push({
                 type: "pcb_trace",
                 pcb_trace_id: `test_fixture_net_trace_${conn.id}_${i}`,
@@ -516,6 +614,7 @@ export function generateTestFixture(options: TestFixtureOptions): CircuitJson {
                   { x: pad1.x, y: pad1.y, width: 0.15, layer: "top" },
                   { x: pad2.x, y: pad2.y, width: 0.15, layer: "top" },
                 ],
+                subcircuit_connectivity_map_key: connectivityKey,
               })
               traceCreated = true
               break
@@ -556,14 +655,43 @@ export function generateFootprint(options: TestFixtureOptions): CircuitJson {
     }
   }
 
-  // Get ALL outer pins (both connected and unconnected)
-  const allOuterPins = Array.from(outerPinNets.entries()).map(
-    ([pinName, outerPin]) => ({
-      pinName,
-      outerPin,
-      connection: outerPinToNet.get(pinName),
-    })
-  )
+  // Build connectivity map from original circuit and user connections
+  // Start with the original circuit's connectivity
+  const originalNetMap: Record<string, string[]> = {}
+  for (const port of circuitData.ports) {
+    const netKey = port.subcircuit_connectivity_map_key
+    if (!originalNetMap[netKey]) {
+      originalNetMap[netKey] = []
+    }
+    // Use port_hints as unique identifiers for pads/pins
+    for (const hint of port.port_hints) {
+      originalNetMap[netKey].push(hint)
+    }
+  }
+
+  const connectivityMap = new ConnectivityMap(originalNetMap)
+
+  // Add user connections to merge nets
+  for (const conn of userConnections) {
+    if (conn.outerPinNames.length < 2) continue
+
+    // Get all port hints for pins in this connection
+    const allHints: string[] = []
+    for (const pinName of conn.outerPinNames) {
+      const outerPin = outerPinNets.get(pinName)
+      if (outerPin) {
+        // Add hints from the outer port and all inner ports in its net
+        for (const port of [outerPin.outerPort, ...outerPin.ports]) {
+          allHints.push(...port.port_hints)
+        }
+      }
+    }
+
+    // Connect all these hints together
+    if (allHints.length >= 2) {
+      connectivityMap.addConnections([allHints])
+    }
+  }
 
   // Create pads for each outer pin at their original positions
   const padSize = 0.5 // mm
@@ -590,10 +718,10 @@ export function generateFootprint(options: TestFixtureOptions): CircuitJson {
     pcb_component_id: pcbComponentId,
     layer: "top",
     route: [
-      { x: -6.0, y: 4.5 },      // arrow point (pointing right)
-      { x: -6.8, y: 5.0 },      // top of arrow tail
-      { x: -6.8, y: 4.0 },      // bottom of arrow tail
-      { x: -6.0, y: 4.5 },      // back to point (close the triangle)
+      { x: -6.0, y: 4.5 }, // arrow point (pointing right)
+      { x: -6.8, y: 5.0 }, // top of arrow tail
+      { x: -6.8, y: 4.0 }, // bottom of arrow tail
+      { x: -6.0, y: 4.5 }, // back to point (close the triangle)
     ],
     stroke_width: 0.1,
   })
@@ -666,11 +794,11 @@ export function generateFootprint(options: TestFixtureOptions): CircuitJson {
 
     // Get all outer pins in this connection
     const connectedOuterPins = conn.outerPinNames
-      .map(pinName => outerPinNets.get(pinName))
+      .map((pinName) => outerPinNets.get(pinName))
       .filter((pin): pin is OuterPinNet => pin !== undefined)
 
     // For C pins, create traces between adjacent nets
-    const cPins = connectedOuterPins.filter(pin => pin.kind === "C")
+    const cPins = connectedOuterPins.filter((pin) => pin.kind === "C")
 
     if (cPins.length >= 2) {
       // Find one-hop connections between consecutive C nets
@@ -699,7 +827,15 @@ export function generateFootprint(options: TestFixtureOptions): CircuitJson {
             const dx = Math.abs(pad1.x - pad2.x)
             const dy = Math.abs(pad1.y - pad2.y)
             if (dx <= 1.5 && dy <= 1.5 && (dx > 0.01 || dy > 0.01)) {
-              // Found a connection, create PCB trace
+              // Found a connection, get the connectivity map key
+              // Use the first port hint from pad1 to look up the net
+              const pad1Hint = pad1.port_hints[0]
+              const connectivityKey = pad1Hint
+                ? connectivityMap.getNetConnectedToId(pad1Hint) ||
+                  `footprint_net_${conn.id}`
+                : `footprint_net_${conn.id}`
+
+              // Create PCB trace with connectivity key
               circuitJson.push({
                 type: "pcb_trace",
                 pcb_trace_id: `footprint_trace_${conn.id}_${i}`,
@@ -707,6 +843,7 @@ export function generateFootprint(options: TestFixtureOptions): CircuitJson {
                   { x: pad1.x, y: pad1.y, width: 0.15, layer: "top" },
                   { x: pad2.x, y: pad2.y, width: 0.15, layer: "top" },
                 ],
+                subcircuit_connectivity_map_key: connectivityKey,
               })
               traceCreated = true
               break
