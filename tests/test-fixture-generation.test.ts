@@ -287,4 +287,69 @@ describe("Test fixture generation", () => {
 
     expect(testFixtureCircuit).toBeDefined()
   })
+
+  test("Verify source_traces have connected_source_port_ids including inner pads", () => {
+    // Create a user connection with C pins that require inner pad routing
+    const userConnections: UserNetConnection[] = [
+      {
+        id: "conn_test_1",
+        name: "NET1",
+        outerPinNames: ["C1", "C3", "C5"],
+        color: colorByIndex(0),
+      },
+    ]
+
+    // Generate test fixture circuit JSON
+    const testFixtureCircuit = generateTestFixture({
+      userConnections,
+      outerPinNets,
+      circuitData,
+    })
+
+    // Find the source_trace for the user connection
+    const sourceTraces = testFixtureCircuit.filter(
+      (el: any) => el.type === "source_trace",
+    )
+
+    // Find the trace that connects to NET1
+    const sourceNets = testFixtureCircuit.filter(
+      (el: any) => el.type === "source_net",
+    )
+    const userNet = sourceNets.find((net: any) => net.name === "NET1")
+    expect(userNet).toBeDefined()
+
+    const userTrace = sourceTraces.find((trace: any) =>
+      trace.connected_source_net_ids?.includes((userNet as any).source_net_id)
+    )
+
+    // Verify the trace has connected_source_port_ids
+    expect(userTrace).toBeDefined()
+    expect((userTrace as any).connected_source_port_ids).toBeDefined()
+    expect(Array.isArray((userTrace as any).connected_source_port_ids)).toBe(true)
+    expect((userTrace as any).connected_source_port_ids.length).toBeGreaterThan(3)
+
+    // Verify that the ports include both outer pins and inner pads
+    const connectedPorts = (userTrace as any).connected_source_port_ids as string[]
+
+    // Find all source_ports that belong to this trace
+    const sourcePorts = testFixtureCircuit.filter(
+      (el: any) => el.type === "source_port" && connectedPorts.includes(el.source_port_id)
+    )
+
+    // Should have outer pins (C1, C3, C5)
+    const outerPins = sourcePorts.filter((port: any) =>
+      port.port_hints.some((hint: string) => ["C1", "C3", "C5"].includes(hint))
+    )
+    expect(outerPins.length).toBe(3)
+
+    // Should also have inner pads (ports connecting C1-C3-C5)
+    const innerPads = sourcePorts.filter((port: any) =>
+      !port.port_hints.some((hint: string) => ["C1", "C3", "C5"].includes(hint))
+    )
+    expect(innerPads.length).toBeGreaterThan(0)
+
+    console.log(`\nNET1 source_trace has ${connectedPorts.length} connected ports:`)
+    console.log(`- ${outerPins.length} outer pins`)
+    console.log(`- ${innerPads.length} inner pads`)
+  })
 })

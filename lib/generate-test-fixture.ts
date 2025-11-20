@@ -213,6 +213,11 @@ export function generateTestFixture(options: TestFixtureOptions): CircuitJson {
   // Create source nets for ALL nets in the connectivity map
   const connectivityKeyToNetId = new Map<string, string>()
   const userConnectionNetIdMap = new Map<string, string>()
+  const sourceNetObjects: Array<{
+    netId: string,
+    name: string,
+    connectivityKey: string
+  }> = []
 
   // First, create source nets for user connections
   for (const conn of userConnections) {
@@ -234,13 +239,7 @@ export function generateTestFixture(options: TestFixtureOptions): CircuitJson {
     }
 
     connectivityKeyToNetId.set(connectivityKey, netId)
-
-    circuitJson.push({
-      type: "source_net",
-      source_net_id: netId,
-      name: conn.name,
-      subcircuit_connectivity_map_key: connectivityKey,
-    })
+    sourceNetObjects.push({ netId, name: conn.name, connectivityKey })
   }
 
   // Create source nets for all other nets in the connectivity map
@@ -254,13 +253,7 @@ export function generateTestFixture(options: TestFixtureOptions): CircuitJson {
 
     const netId = `test_fixture_auto_net_${autoNetCounter++}`
     connectivityKeyToNetId.set(connectivityKey, netId)
-
-    circuitJson.push({
-      type: "source_net",
-      source_net_id: netId,
-      name: `net_${pinName}`,
-      subcircuit_connectivity_map_key: connectivityKey,
-    })
+    sourceNetObjects.push({ netId, name: `net_${pinName}`, connectivityKey })
   }
 
   // Create traces connecting ports in the same net
@@ -347,6 +340,7 @@ export function generateTestFixture(options: TestFixtureOptions): CircuitJson {
   let padCounter = 0
   const padToPort = new Map<string, string>()
   const padIdToPcbPort = new Map<string, string>()
+  const allSourcePortIds: string[] = [] // Collect all source port IDs created
 
   // First, create pads for ALL original pads from the circuit data
   for (const originalPad of circuitData.pads) {
@@ -395,6 +389,7 @@ export function generateTestFixture(options: TestFixtureOptions): CircuitJson {
             port_hints: originalPad.port_hints,
             subcircuit_connectivity_map_key: connectivityKey,
           })
+          allSourcePortIds.push(sourcePortId) // Track this port
         }
       }
     }
@@ -425,6 +420,54 @@ export function generateTestFixture(options: TestFixtureOptions): CircuitJson {
 
     padIdToPcbPort.set(originalPad.pcb_smtpad_id, pcbPortId)
     padCounter++
+  }
+
+  // Now that all source_ports are created (outer + inner), collect them by connectivity key
+  // so we can update source_traces with inner pad ports
+  const connectivityKeyToPortIds = new Map<string, string[]>()
+
+  // Add outer pin ports
+  for (const [pinName, sourcePortId] of pinToSourcePort.entries()) {
+    const connectivityKey = connectivityMap.getNetConnectedToId(pinName)
+    if (connectivityKey) {
+      if (!connectivityKeyToPortIds.has(connectivityKey)) {
+        connectivityKeyToPortIds.set(connectivityKey, [])
+      }
+      connectivityKeyToPortIds.get(connectivityKey)!.push(sourcePortId)
+    }
+  }
+
+  // Add inner pad ports (already tracked in allSourcePortIds)
+  for (const sourcePortId of allSourcePortIds) {
+    // Find the source_port in circuitJson to get its connectivity key
+    const sourcePort = circuitJson.find(
+      (obj) => obj.type === "source_port" && obj.source_port_id === sourcePortId
+    ) as any
+    if (sourcePort?.subcircuit_connectivity_map_key) {
+      const connectivityKey = sourcePort.subcircuit_connectivity_map_key
+      if (!connectivityKeyToPortIds.has(connectivityKey)) {
+        connectivityKeyToPortIds.set(connectivityKey, [])
+      }
+      connectivityKeyToPortIds.get(connectivityKey)!.push(sourcePortId)
+    }
+  }
+
+  // Update source_traces to include inner pad ports
+  for (const obj of circuitJson) {
+    if (obj.type === "source_trace" && obj.subcircuit_connectivity_map_key) {
+      const allPortsForNet = connectivityKeyToPortIds.get(obj.subcircuit_connectivity_map_key) || []
+      obj.connected_source_port_ids = allPortsForNet
+    }
+  }
+
+  // Emit source_net objects
+  for (const { netId, name, connectivityKey } of sourceNetObjects) {
+    circuitJson.push({
+      type: "source_net",
+      source_net_id: netId,
+      name: name,
+      subcircuit_connectivity_map_key: connectivityKey,
+    })
   }
 
   // Now create test pads for outer pins only
@@ -777,6 +820,11 @@ export function generateFootprint(options: TestFixtureOptions): CircuitJson {
 
   // Create source nets for ALL nets in the connectivity map
   const connectivityKeyToNetId = new Map<string, string>()
+  const footprintSourceNetObjects: Array<{
+    netId: string,
+    name: string,
+    connectivityKey: string
+  }> = []
 
   // First, create source nets for user connections
   for (const conn of userConnections) {
@@ -797,13 +845,7 @@ export function generateFootprint(options: TestFixtureOptions): CircuitJson {
     }
 
     connectivityKeyToNetId.set(connectivityKey, netId)
-
-    circuitJson.push({
-      type: "source_net",
-      source_net_id: netId,
-      name: conn.name,
-      subcircuit_connectivity_map_key: connectivityKey,
-    })
+    footprintSourceNetObjects.push({ netId, name: conn.name, connectivityKey })
   }
 
   // Create source nets for all other nets in the connectivity map
@@ -820,13 +862,7 @@ export function generateFootprint(options: TestFixtureOptions): CircuitJson {
 
     const netId = `footprint_auto_net_${autoNetCounter++}`
     connectivityKeyToNetId.set(connectivityKey, netId)
-
-    circuitJson.push({
-      type: "source_net",
-      source_net_id: netId,
-      name: `net_${padHint}`,
-      subcircuit_connectivity_map_key: connectivityKey,
-    })
+    footprintSourceNetObjects.push({ netId, name: `net_${padHint}`, connectivityKey })
   }
 
   // Create source_traces for user connections (for inner bridge traces to reference)
@@ -943,6 +979,7 @@ export function generateFootprint(options: TestFixtureOptions): CircuitJson {
   }
 
   // Add pads for ALL pads from the original circuit
+  const footprintConnectivityKeyToPortIds = new Map<string, string[]>()
   for (const pad of circuitData.pads) {
     const port = circuitData.ports.find((p) =>
       p.port_hints?.includes(pad.port_hints?.[0] || ""),
@@ -959,6 +996,31 @@ export function generateFootprint(options: TestFixtureOptions): CircuitJson {
       pad.shape === "circle" ? innerPinPadSize : padSize,
       pad.port_hints || [],
     )
+
+    // Collect source ports by connectivity key
+    const connectivityKey = port.subcircuit_connectivity_map_key
+    if (!footprintConnectivityKeyToPortIds.has(connectivityKey)) {
+      footprintConnectivityKeyToPortIds.set(connectivityKey, [])
+    }
+    footprintConnectivityKeyToPortIds.get(connectivityKey)!.push(sourcePortId)
+  }
+
+  // Update source_traces to include inner pad ports
+  for (const obj of circuitJson) {
+    if (obj.type === "source_trace" && obj.subcircuit_connectivity_map_key) {
+      const allPortsForNet = footprintConnectivityKeyToPortIds.get(obj.subcircuit_connectivity_map_key) || []
+      obj.connected_source_port_ids = allPortsForNet
+    }
+  }
+
+  // Emit source_net objects
+  for (const { netId, name, connectivityKey } of footprintSourceNetObjects) {
+    circuitJson.push({
+      type: "source_net",
+      source_net_id: netId,
+      name: name,
+      subcircuit_connectivity_map_key: connectivityKey,
+    })
   }
 
   // Add PCB traces to connect nets together (routing between connected pads)
