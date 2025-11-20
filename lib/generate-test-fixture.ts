@@ -378,6 +378,27 @@ export function generateTestFixture(options: TestFixtureOptions): CircuitJson {
       }
     }
 
+    // If no source port exists (inner pads), create one with proper connectivity
+    if (!sourcePortId) {
+      sourcePortId = `test_fixture_inner_port_${padCounter}`
+      const padHint = originalPad.port_hints[0]
+      if (padHint) {
+        const connectivityKey = connectivityMap.getNetConnectedToId(padHint)
+        if (connectivityKey) {
+          circuitJson.push({
+            type: "source_port",
+            source_port_id: sourcePortId,
+            name: padHint,
+            source_component_id: testFixtureComponentId,
+            subcircuit_id: subcircuitId,
+            pin_number: padCounter + 1000, // Offset to avoid conflicts with outer pins
+            port_hints: originalPad.port_hints,
+            subcircuit_connectivity_map_key: connectivityKey,
+          })
+        }
+      }
+    }
+
     circuitJson.push({
       type: "pcb_port",
       pcb_port_id: pcbPortId,

@@ -40,11 +40,11 @@ describe("Test fixture generation", () => {
     )
     expect(sourceComponent).toBeDefined()
 
-    // Check for source ports (should have 36 for all outer pins)
+    // Check for source ports (should have 100 total: 36 outer pins + 64 inner pads)
     const sourcePorts = testFixtureCircuit.filter(
       (el: any) => el.type === "source_port",
     )
-    expect(sourcePorts.length).toBe(36)
+    expect(sourcePorts.length).toBe(100)
 
     // Check for source nets (one for each unique connectivity key)
     const sourceNets = testFixtureCircuit.filter(
