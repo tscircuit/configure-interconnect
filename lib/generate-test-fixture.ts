@@ -86,7 +86,7 @@ export function generateTestFixture(options: TestFixtureOptions): CircuitJson {
 
   // Create pads for each connected outer pin at their original positions
   const padSize = 0.5 // mm
-  const testPadSize = 4.0 // mm (4mm x 4mm test pads)
+  const testPadSize = 1.2 // mm (1.2mm x 1.2mm test pads)
   const traceWidth = 0.25 // mm
   const fixtureSize = 20 // mm target box for outer test pads
 
@@ -94,7 +94,7 @@ export function generateTestFixture(options: TestFixtureOptions): CircuitJson {
     if (padCount <= 1) return 0
 
     const availableSpan = fixtureSize - testPadSize
-    const defaultPitch = 5.0 // mm (preferred pitch between test pads)
+    const defaultPitch = 4.0 // mm (preferred pitch between test pads)
     return Math.min(defaultPitch, availableSpan / (padCount - 1))
   }
 
