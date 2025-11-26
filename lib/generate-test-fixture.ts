@@ -94,7 +94,7 @@ export function generateTestFixture(options: TestFixtureOptions): CircuitJson {
     if (padCount <= 1) return 0
 
     const availableSpan = fixtureSize - testPadSize
-    const defaultPitch = 4.0 // mm (preferred pitch between test pads)
+    const defaultPitch = 3.0 // mm (preferred pitch between test pads)
     return Math.min(defaultPitch, availableSpan / (padCount - 1))
   }
 
@@ -217,8 +217,8 @@ export function generateTestFixture(options: TestFixtureOptions): CircuitJson {
   const connectivityKeyToNetId = new Map<string, string>()
   const userConnectionNetIdMap = new Map<string, string>()
   const sourceNetObjects: Array<{
-    netId: string,
-    name: string,
+    netId: string
+    name: string
     connectivityKey: string
   }> = []
 
@@ -237,7 +237,7 @@ export function generateTestFixture(options: TestFixtureOptions): CircuitJson {
     const connectivityKey = connectivityMap.getNetConnectedToId(firstPinName)
     if (!connectivityKey) {
       throw new Error(
-        `No connectivity key found for pin ${firstPinName} in connection ${conn.id}`
+        `No connectivity key found for pin ${firstPinName} in connection ${conn.id}`,
       )
     }
 
@@ -280,7 +280,7 @@ export function generateTestFixture(options: TestFixtureOptions): CircuitJson {
     const connectivityKey = connectivityMap.getNetConnectedToId(firstPinName)
     if (!connectivityKey) {
       throw new Error(
-        `No connectivity key found for pin ${firstPinName} in connection ${conn.id}`
+        `No connectivity key found for pin ${firstPinName} in connection ${conn.id}`,
       )
     }
 
@@ -444,7 +444,8 @@ export function generateTestFixture(options: TestFixtureOptions): CircuitJson {
   for (const sourcePortId of allSourcePortIds) {
     // Find the source_port in circuitJson to get its connectivity key
     const sourcePort = circuitJson.find(
-      (obj) => obj.type === "source_port" && obj.source_port_id === sourcePortId
+      (obj) =>
+        obj.type === "source_port" && obj.source_port_id === sourcePortId,
     ) as any
     if (sourcePort?.subcircuit_connectivity_map_key) {
       const connectivityKey = sourcePort.subcircuit_connectivity_map_key
@@ -458,7 +459,8 @@ export function generateTestFixture(options: TestFixtureOptions): CircuitJson {
   // Update source_traces to include inner pad ports
   for (const obj of circuitJson) {
     if (obj.type === "source_trace" && obj.subcircuit_connectivity_map_key) {
-      const allPortsForNet = connectivityKeyToPortIds.get(obj.subcircuit_connectivity_map_key) || []
+      const allPortsForNet =
+        connectivityKeyToPortIds.get(obj.subcircuit_connectivity_map_key) || []
       obj.connected_source_port_ids = allPortsForNet
     }
   }
@@ -548,13 +550,13 @@ export function generateTestFixture(options: TestFixtureOptions): CircuitJson {
     const padHint = originalPad.port_hints[0]
     if (!padHint) {
       throw new Error(
-        `No port hints found for pad at (${originalPad.x}, ${originalPad.y})`
+        `No port hints found for pad at (${originalPad.x}, ${originalPad.y})`,
       )
     }
     const traceConnectivityKey = connectivityMap.getNetConnectedToId(padHint)
     if (!traceConnectivityKey) {
       throw new Error(
-        `No connectivity key found for pad hint ${padHint} on pin ${pinName}`
+        `No connectivity key found for pad hint ${padHint} on pin ${pinName}`,
       )
     }
 
@@ -563,7 +565,7 @@ export function generateTestFixture(options: TestFixtureOptions): CircuitJson {
     const netId = connectivityKeyToNetId.get(traceConnectivityKey)
     if (!netId) {
       throw new Error(
-        `No net ID found for connectivity key ${traceConnectivityKey} on pin ${pinName}`
+        `No net ID found for connectivity key ${traceConnectivityKey} on pin ${pinName}`,
       )
     }
 
@@ -716,28 +718,32 @@ export function generateTestFixture(options: TestFixtureOptions): CircuitJson {
               const pad1Hint = pad1.port_hints[0]
               if (!pad1Hint) {
                 throw new Error(
-                  `No port hints found for pad at (${pad1.x}, ${pad1.y})`
+                  `No port hints found for pad at (${pad1.x}, ${pad1.y})`,
                 )
               }
               const bridgeConnectivityKey =
                 connectivityMap.getNetConnectedToId(pad1Hint)
               if (!bridgeConnectivityKey) {
                 throw new Error(
-                  `No connectivity key found for bridge pad hint ${pad1Hint}`
+                  `No connectivity key found for bridge pad hint ${pad1Hint}`,
                 )
               }
 
               // For inner bridge connections, reference the source_trace that connects the outer pins
               // Inner pads don't have their own source_ports, but the pcb_trace should reference
               // the source_trace of the connection they're routing
-              const sourceTraceIdForBridge = connectivityKeyToSourceTraceId.get(bridgeConnectivityKey)
+              const sourceTraceIdForBridge = connectivityKeyToSourceTraceId.get(
+                bridgeConnectivityKey,
+              )
 
               // Create PCB trace with bridge connectivity key
               // Reference the source_trace for this connection if it exists
               circuitJson.push({
                 type: "pcb_trace",
                 pcb_trace_id: `test_fixture_net_trace_${conn.id}_${i}`,
-                ...(sourceTraceIdForBridge && { source_trace_id: sourceTraceIdForBridge }),
+                ...(sourceTraceIdForBridge && {
+                  source_trace_id: sourceTraceIdForBridge,
+                }),
                 route: [
                   { x: pad1.x, y: pad1.y, width: traceWidth, layer: "top" },
                   { x: pad2.x, y: pad2.y, width: traceWidth, layer: "top" },
@@ -824,8 +830,8 @@ export function generateFootprint(options: TestFixtureOptions): CircuitJson {
   // Create source nets for ALL nets in the connectivity map
   const connectivityKeyToNetId = new Map<string, string>()
   const footprintSourceNetObjects: Array<{
-    netId: string,
-    name: string,
+    netId: string
+    name: string
     connectivityKey: string
   }> = []
 
@@ -843,7 +849,7 @@ export function generateFootprint(options: TestFixtureOptions): CircuitJson {
     const connectivityKey = connectivityMap.getNetConnectedToId(firstPinName)
     if (!connectivityKey) {
       throw new Error(
-        `No connectivity key found for pin ${firstPinName} in connection ${conn.id}`
+        `No connectivity key found for pin ${firstPinName} in connection ${conn.id}`,
       )
     }
 
@@ -865,7 +871,11 @@ export function generateFootprint(options: TestFixtureOptions): CircuitJson {
 
     const netId = `footprint_auto_net_${autoNetCounter++}`
     connectivityKeyToNetId.set(connectivityKey, netId)
-    footprintSourceNetObjects.push({ netId, name: `net_${padHint}`, connectivityKey })
+    footprintSourceNetObjects.push({
+      netId,
+      name: `net_${padHint}`,
+      connectivityKey,
+    })
   }
 
   // Create source_traces for user connections (for inner bridge traces to reference)
@@ -883,7 +893,7 @@ export function generateFootprint(options: TestFixtureOptions): CircuitJson {
     const connectivityKey = connectivityMap.getNetConnectedToId(firstPinName)
     if (!connectivityKey) {
       throw new Error(
-        `No connectivity key found for pin ${firstPinName} in connection ${conn.id}`
+        `No connectivity key found for pin ${firstPinName} in connection ${conn.id}`,
       )
     }
 
@@ -1011,7 +1021,10 @@ export function generateFootprint(options: TestFixtureOptions): CircuitJson {
   // Update source_traces to include inner pad ports
   for (const obj of circuitJson) {
     if (obj.type === "source_trace" && obj.subcircuit_connectivity_map_key) {
-      const allPortsForNet = footprintConnectivityKeyToPortIds.get(obj.subcircuit_connectivity_map_key) || []
+      const allPortsForNet =
+        footprintConnectivityKeyToPortIds.get(
+          obj.subcircuit_connectivity_map_key,
+        ) || []
       obj.connected_source_port_ids = allPortsForNet
     }
   }
@@ -1070,28 +1083,32 @@ export function generateFootprint(options: TestFixtureOptions): CircuitJson {
               const pad1Hint = pad1.port_hints[0]
               if (!pad1Hint) {
                 throw new Error(
-                  `No port hints found for pad at (${pad1.x}, ${pad1.y})`
+                  `No port hints found for pad at (${pad1.x}, ${pad1.y})`,
                 )
               }
               const bridgeConnectivityKey =
                 connectivityMap.getNetConnectedToId(pad1Hint)
               if (!bridgeConnectivityKey) {
                 throw new Error(
-                  `No connectivity key found for bridge pad hint ${pad1Hint}`
+                  `No connectivity key found for bridge pad hint ${pad1Hint}`,
                 )
               }
 
               // For inner bridge connections, reference the source_trace that connects the outer pins
               // Inner pads don't have their own source_ports, but the pcb_trace should reference
               // the source_trace of the connection they're routing
-              const sourceTraceIdForBridge = connectivityKeyToSourceTraceId.get(bridgeConnectivityKey)
+              const sourceTraceIdForBridge = connectivityKeyToSourceTraceId.get(
+                bridgeConnectivityKey,
+              )
 
               // Create PCB trace with bridge connectivity key
               // Reference the source_trace for this connection if it exists
               circuitJson.push({
                 type: "pcb_trace",
                 pcb_trace_id: `footprint_trace_${conn.id}_${i}`,
-                ...(sourceTraceIdForBridge && { source_trace_id: sourceTraceIdForBridge }),
+                ...(sourceTraceIdForBridge && {
+                  source_trace_id: sourceTraceIdForBridge,
+                }),
                 route: [
                   { x: pad1.x, y: pad1.y, width: 0.15, layer: "top" },
                   { x: pad2.x, y: pad2.y, width: 0.15, layer: "top" },
