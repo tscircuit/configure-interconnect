@@ -13,7 +13,7 @@ export type TestFixtureOptions = {
  * Generate a test fixture circuit JSON that includes:
  * - 0.5mm x 0.5mm pads at the interconnect locations
  * - Traces connecting the pads according to user connections
- * - Test pads extended out to a 30mm x 30mm box
+ * - Test pads extended out to a 20mm x 20mm box
  * - Silkscreen text showing net names
  */
 export function generateTestFixture(options: TestFixtureOptions): CircuitJson {
@@ -87,7 +87,16 @@ export function generateTestFixture(options: TestFixtureOptions): CircuitJson {
   // Create pads for each connected outer pin at their original positions
   const padSize = 0.5 // mm
   const testPadSize = 4.0 // mm (4mm x 4mm test pads)
-  const testPadPitch = 5.0 // mm (5mm pitch between test pads)
+  const traceWidth = 0.25 // mm
+  const fixtureSize = 20 // mm target box for outer test pads
+
+  const getTestPadPitch = (padCount: number) => {
+    if (padCount <= 1) return 0
+
+    const availableSpan = fixtureSize - testPadSize
+    const defaultPitch = 5.0 // mm (preferred pitch between test pads)
+    return Math.min(defaultPitch, availableSpan / (padCount - 1))
+  }
 
   // Group pins by edge (top, right, bottom, left)
   const pinsByEdge = {
@@ -134,52 +143,46 @@ export function generateTestFixture(options: TestFixtureOptions): CircuitJson {
   pinsByEdge.left.sort((a, b) => b.y - a.y) // top to bottom
   pinsByEdge.right.sort((a, b) => b.y - a.y) // top to bottom
 
-  // Calculate fixture size based on the maximum number of pads on any edge
-  const maxPadsPerEdge = Math.max(
-    pinsByEdge.top.length,
-    pinsByEdge.bottom.length,
-    pinsByEdge.left.length,
-    pinsByEdge.right.length,
-  )
-  const minFixtureSize = (maxPadsPerEdge - 1) * testPadPitch + 10 // Add 10mm margin
-  const fixtureSize = Math.max(30, minFixtureSize) // At least 30mm
-
-  // Calculate positions for test pads around the perimeter with 3mm pitch
+  // Calculate positions for test pads around the perimeter
   const testPadPositions = new Map<string, { x: number; y: number }>()
 
   // Top edge - center the pads
-  const topStartX = (-(pinsByEdge.top.length - 1) * testPadPitch) / 2
+  const topPitch = getTestPadPitch(pinsByEdge.top.length)
+  const topStartX = (-(pinsByEdge.top.length - 1) * topPitch) / 2
   pinsByEdge.top.forEach((pin, idx) => {
     testPadPositions.set(pin.pinName, {
-      x: topStartX + idx * testPadPitch,
+      x: topStartX + idx * topPitch,
       y: fixtureSize / 2,
     })
   })
 
   // Bottom edge - center the pads
-  const bottomStartX = (-(pinsByEdge.bottom.length - 1) * testPadPitch) / 2
+  const bottomPitch = getTestPadPitch(pinsByEdge.bottom.length)
+  const bottomStartX = (-(pinsByEdge.bottom.length - 1) * bottomPitch) / 2
   pinsByEdge.bottom.forEach((pin, idx) => {
     testPadPositions.set(pin.pinName, {
-      x: bottomStartX + idx * testPadPitch,
+      x: bottomStartX + idx * bottomPitch,
       y: -fixtureSize / 2,
     })
   })
 
   // Left edge - center the pads
-  const leftStartY = ((pinsByEdge.left.length - 1) * testPadPitch) / 2
+  const leftPitch = getTestPadPitch(pinsByEdge.left.length)
+  const leftStartY = ((pinsByEdge.left.length - 1) * leftPitch) / 2
   pinsByEdge.left.forEach((pin, idx) => {
     testPadPositions.set(pin.pinName, {
       x: -fixtureSize / 2,
-      y: leftStartY - idx * testPadPitch,
+      y: leftStartY - idx * leftPitch,
     })
   })
 
   // Right edge - center the pads
-  const rightStartY = ((pinsByEdge.right.length - 1) * testPadPitch) / 2
+  const rightPitch = getTestPadPitch(pinsByEdge.right.length)
+  const rightStartY = ((pinsByEdge.right.length - 1) * rightPitch) / 2
   pinsByEdge.right.forEach((pin, idx) => {
     testPadPositions.set(pin.pinName, {
       x: fixtureSize / 2,
-      y: rightStartY - idx * testPadPitch,
+      y: rightStartY - idx * rightPitch,
     })
   })
 
@@ -580,8 +583,8 @@ export function generateTestFixture(options: TestFixtureOptions): CircuitJson {
       pcb_trace_id: traceId,
       source_trace_id: sourceTraceId,
       route: [
-        { x: originalPad.x, y: originalPad.y, width: 0.15, layer: "top" },
-        { x: testPos.x, y: testPos.y, width: 0.15, layer: "top" },
+        { x: originalPad.x, y: originalPad.y, width: traceWidth, layer: "top" },
+        { x: testPos.x, y: testPos.y, width: traceWidth, layer: "top" },
       ],
       subcircuit_connectivity_map_key: traceConnectivityKey,
     })
@@ -736,8 +739,8 @@ export function generateTestFixture(options: TestFixtureOptions): CircuitJson {
                 pcb_trace_id: `test_fixture_net_trace_${conn.id}_${i}`,
                 ...(sourceTraceIdForBridge && { source_trace_id: sourceTraceIdForBridge }),
                 route: [
-                  { x: pad1.x, y: pad1.y, width: 0.15, layer: "top" },
-                  { x: pad2.x, y: pad2.y, width: 0.15, layer: "top" },
+                  { x: pad1.x, y: pad1.y, width: traceWidth, layer: "top" },
+                  { x: pad2.x, y: pad2.y, width: traceWidth, layer: "top" },
                 ],
                 subcircuit_connectivity_map_key: bridgeConnectivityKey,
               })
