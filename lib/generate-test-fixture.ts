@@ -13,7 +13,7 @@ export type TestFixtureOptions = {
  * Generate a test fixture circuit JSON that includes:
  * - 0.5mm x 0.5mm pads at the interconnect locations
  * - Traces connecting the pads according to user connections
- * - Test pads extended out to a 20mm x 20mm box
+ * - Test pads extended out to a 25mm x 25mm box
  * - Silkscreen text showing net names
  */
 export function generateTestFixture(options: TestFixtureOptions): CircuitJson {
@@ -88,7 +88,7 @@ export function generateTestFixture(options: TestFixtureOptions): CircuitJson {
   const padSize = 0.5 // mm
   const testPadSize = 1.2 // mm (1.2mm x 1.2mm test pads)
   const traceWidth = 0.25 // mm
-  const fixtureSize = 20 // mm target box for outer test pads
+  const fixtureSize = 25 // mm target box for outer test pads
 
   const getTestPadPitch = (padCount: number) => {
     if (padCount <= 1) return 0
